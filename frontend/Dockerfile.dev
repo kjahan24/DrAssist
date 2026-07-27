@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+# Development image — hot reload via bind-mounted source (see
+# docker-compose.override.yml).
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

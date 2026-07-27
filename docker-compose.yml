@@ -1,0 +1,176 @@
+networks:
+  drassist-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  minio-data:
+
+services:
+  # ------------------------------------------------------------------
+  # Data stores
+  # ------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: drassist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - drassist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: drassist-redis
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+      - ./infra/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - drassist-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: drassist-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    volumes:
+      - qdrant-data:/qdrant/storage
+      - ./infra/docker/qdrant/config.yaml:/qdrant/config/production.yaml:ro
+    networks:
+      - drassist-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: drassist-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - drassist-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------------
+  # Application services
+  # ------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: drassist-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - drassist-network
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # No fixed container_name: docker-compose.prod.yml scales this service
+    # to multiple replicas, which requires Compose to assign unique names.
+    restart: unless-stopped
+    command: ["celery", "-A", "app.infrastructure.queue.celery_app", "worker", "--loglevel=info"]
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - drassist-network
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: drassist-celery-beat
+    restart: unless-stopped
+    command: ["celery", "-A", "app.infrastructure.queue.celery_app", "beat", "--loglevel=info"]
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - drassist-network
+
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: drassist-flower
+    restart: unless-stopped
+    command: ["celery", "-A", "app.infrastructure.queue.celery_app", "flower", "--port=5555"]
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - drassist-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: drassist-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    networks:
+      - drassist-network

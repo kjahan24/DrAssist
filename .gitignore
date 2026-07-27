@@ -1,0 +1,78 @@
+# ==========================================================================
+# DrAssist — root .gitignore
+# ==========================================================================
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Editors / IDE ----------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# ---------- Environment / secrets ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!infra/**/*.key.example
+
+# ---------- Python (backend) ----------
+backend/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+backend/.coverage.*
+backend/coverage.xml
+backend/*.egg-info/
+backend/build/
+backend/dist/
+backend/logs/*.log
+
+# ---------- Alembic (keep migration scripts, ignore local artifacts) ----------
+backend/alembic/versions/__pycache__/
+
+# ---------- Node / Next.js (frontend) ----------
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.turbo/
+frontend/.vercel/
+frontend/next-env.d.ts
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.eslintcache
+
+# ---------- Docker ----------
+**/docker-compose.override.local.yml
+
+# ---------- Data volumes mounted locally (if any) ----------
+infra/data/
+infra/docker/postgres/data/
+infra/docker/qdrant/storage/
+
+# ---------- Logs ----------
+*.log
+!**/logs/.gitkeep
+
+# ---------- Misc ----------
+*.bak
+*.tmp
+.cache/

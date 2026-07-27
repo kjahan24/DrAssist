@@ -1,0 +1,21 @@
+# Development & CI tooling. Installed on top of base.txt.
+-r base.txt
+
+# --- Testing ---
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+httpx==0.28.1
+faker==33.1.0
+
+# --- Linting / formatting / typing ---
+ruff==0.8.4
+mypy==1.14.0
+black==24.10.0
+types-redis==4.6.0.20241004
+
+# --- Dev experience ---
+watchfiles==1.0.3
+ipython==8.31.0
+pre-commit==4.0.1

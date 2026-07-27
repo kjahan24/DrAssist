@@ -1,0 +1,3 @@
+# Production dependencies. Installed on top of base.txt.
+# Keep this free of dev/test tooling to minimize image size and attack surface.
+-r base.txt

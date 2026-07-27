@@ -1,0 +1,16 @@
+# Qdrant server configuration, mounted read-only into the container at
+# /qdrant/config/production.yaml (see docker-compose.yml). API key auth is
+# also enforced via the QDRANT__SERVICE__API_KEY env var.
+log_level: INFO
+
+storage:
+  storage_path: /qdrant/storage
+  on_disk_payload: true
+
+service:
+  host: 0.0.0.0
+  http_port: 6333
+  grpc_port: 6334
+  enable_cors: true
+
+telemetry_disabled: true
