@@ -6,5 +6,6 @@
 # `docs/backend-architecture/01_folder_structure.md` (Evolution note).
 
 from app.modules.authentication.infrastructure import models as authentication_models
+from app.modules.organization.infrastructure import models as organization_models
 
-__all__ = ["authentication_models"]
+__all__ = ["authentication_models", "organization_models"]
