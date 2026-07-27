@@ -9,8 +9,8 @@ from functools import lru_cache
 
 import google.generativeai as genai
 
-from app.application.interfaces.ai_provider_port import TextGenerationPort
 from app.core.config import get_settings
+from app.shared.application.ai_provider_port import TextGenerationPort
 
 
 class GeminiClient(TextGenerationPort):

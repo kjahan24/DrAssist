@@ -15,7 +15,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.container import configure_event_subscriptions, get_event_bus
 from app.core.logging import configure_logging, get_logger
+from app.middlewares.authentication_middleware import AuthenticationContextMiddleware
 from app.middlewares.error_handler import register_exception_handlers
 from app.middlewares.logging_middleware import LoggingMiddleware
 from app.middlewares.request_id_middleware import RequestIDMiddleware
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     Concrete resource wiring belongs in `app/infrastructure/*`; this hook
     only calls into that layer's lifecycle functions once they exist.
     """
+    configure_event_subscriptions(get_event_bus())
     logger.info("application_startup", environment=get_settings().environment)
     yield
     logger.info("application_shutdown")
@@ -56,6 +59,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.backend.allowed_hosts_list)
+    # Starlette wraps middleware such that the *last* one added here runs
+    # *first* on the way in — this ordering puts AuthenticationContextMiddleware
+    # inside RequestIDMiddleware/LoggingMiddleware (so request_id is already
+    # bound if it ever needs to log) but outside TrustedHostMiddleware/CORS.
+    app.add_middleware(AuthenticationContextMiddleware)
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
 

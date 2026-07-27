@@ -112,7 +112,9 @@ class JWTSettings(_EnvBaseSettings):
 
 class ObservabilitySettings(_EnvBaseSettings):
     sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
-    otel_exporter_otlp_endpoint: str | None = Field(default=None, alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_exporter_otlp_endpoint: str | None = Field(
+        default=None, alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
 
 
 class Settings(_EnvBaseSettings):

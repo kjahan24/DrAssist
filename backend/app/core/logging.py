@@ -9,7 +9,7 @@ as possible in each process entrypoint (ASGI app, Celery worker, scripts).
 
 import logging
 import sys
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -64,4 +64,7 @@ def configure_logging() -> None:
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Return a structlog-bound logger scoped to `name` (typically `__name__`)."""
-    return structlog.get_logger(name)
+    # structlog's own stubs type `get_logger` as returning `Any` (the actual
+    # runtime type depends on `configure()`, called above) — cast() documents
+    # the true type without changing runtime behavior.
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))

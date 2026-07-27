@@ -37,9 +37,13 @@ faster-whisper==1.1.0
 paddleocr==2.9.1
 paddlepaddle==2.6.2
 
-# --- Auth / security primitives (libraries only, no logic here) ---
+# --- Auth / security primitives ---
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+# passlib 1.7.4 (last released 2020) reads bcrypt.__about__.__version__,
+# which bcrypt>=4.1 removed — pin below that to avoid a runtime
+# AttributeError the first time a password is hashed or verified.
+bcrypt==4.0.1
 python-multipart==0.0.20
 
 # --- Observability ---

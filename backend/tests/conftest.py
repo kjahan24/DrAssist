@@ -5,7 +5,7 @@ Environment overrides are set before any application module is imported so
 """
 
 import os
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio

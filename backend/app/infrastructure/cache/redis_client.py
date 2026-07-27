@@ -13,6 +13,6 @@ from app.core.config import get_settings
 
 
 @lru_cache
-def get_redis_client() -> Redis:
+def get_redis_client() -> Redis[str]:
     settings = get_settings()
     return Redis.from_url(str(settings.redis.url), decode_responses=True)

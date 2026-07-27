@@ -8,8 +8,8 @@ from functools import lru_cache
 
 from faster_whisper import WhisperModel
 
-from app.application.interfaces.ai_provider_port import SpeechToTextPort
 from app.core.config import get_settings
+from app.shared.application.ai_provider_port import SpeechToTextPort
 
 
 class WhisperClient(SpeechToTextPort):

@@ -8,8 +8,8 @@ from functools import lru_cache
 
 from paddleocr import PaddleOCR
 
-from app.application.interfaces.ai_provider_port import OCRPort
 from app.core.config import get_settings
+from app.shared.application.ai_provider_port import OCRPort
 
 
 class PaddleOCRClient(OCRPort):
