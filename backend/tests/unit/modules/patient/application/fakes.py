@@ -11,8 +11,14 @@ from uuid import UUID
 
 from app.modules.organization.public.dto import OrganizationSummaryDTO
 from app.modules.organization.public.interfaces import OrganizationQueryPort
-from app.modules.patient.domain.entities import Patient
-from app.modules.patient.domain.repositories import PatientRepository
+from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
+from app.modules.patient.domain.enums import ContactType
+from app.modules.patient.domain.repositories import (
+    EmergencyContactRepository,
+    InsuranceRepository,
+    PatientContactRepository,
+    PatientRepository,
+)
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.domain.domain_event import DomainEvent
 
@@ -43,6 +49,64 @@ class FakePatientRepository(PatientRepository):
 
     async def add(self, patient: Patient) -> None:
         self._patients[patient.id] = patient
+
+
+class FakePatientContactRepository(PatientContactRepository):
+    def __init__(self) -> None:
+        self._contacts: dict[UUID, PatientContact] = {}
+
+    async def get_by_id(self, contact_id: UUID) -> PatientContact | None:
+        return self._contacts.get(contact_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientContact]:
+        return [c for c in self._contacts.values() if c.patient_id == patient_id]
+
+    async def unset_primary_for_patient_and_type(
+        self, patient_id: UUID, contact_type: ContactType
+    ) -> None:
+        for contact in self._contacts.values():
+            if (
+                contact.patient_id == patient_id
+                and contact.contact_type == contact_type
+                and contact.is_primary
+            ):
+                contact.is_primary = False
+
+    async def add(self, contact: PatientContact) -> None:
+        self._contacts[contact.id] = contact
+
+
+class FakeEmergencyContactRepository(EmergencyContactRepository):
+    def __init__(self) -> None:
+        self._contacts: dict[UUID, EmergencyContact] = {}
+
+    async def get_by_id(self, contact_id: UUID) -> EmergencyContact | None:
+        return self._contacts.get(contact_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[EmergencyContact]:
+        return [c for c in self._contacts.values() if c.patient_id == patient_id]
+
+    async def unset_primary_for_patient(self, patient_id: UUID) -> None:
+        for contact in self._contacts.values():
+            if contact.patient_id == patient_id and contact.is_primary:
+                contact.is_primary = False
+
+    async def add(self, contact: EmergencyContact) -> None:
+        self._contacts[contact.id] = contact
+
+
+class FakeInsuranceRepository(InsuranceRepository):
+    def __init__(self) -> None:
+        self._insurance: dict[UUID, Insurance] = {}
+
+    async def get_by_id(self, insurance_id: UUID) -> Insurance | None:
+        return self._insurance.get(insurance_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[Insurance]:
+        return [i for i in self._insurance.values() if i.patient_id == patient_id]
+
+    async def add(self, insurance: Insurance) -> None:
+        self._insurance[insurance.id] = insurance
 
 
 class FakeUnitOfWork(UnitOfWork):

@@ -41,3 +41,16 @@ class MaritalStatus(StrEnum):
     DIVORCED = "divorced"
     WIDOWED = "widowed"
     SEPARATED = "separated"
+
+
+class ContactType(StrEnum):
+    MOBILE = "mobile"
+    HOME = "home"
+    OFFICE = "office"
+    OTHER = "other"
+
+
+class InsuranceStatus(StrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    CANCELLED = "cancelled"

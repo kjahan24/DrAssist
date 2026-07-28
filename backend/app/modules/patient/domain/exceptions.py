@@ -47,3 +47,46 @@ class FutureDateOfBirthError(DomainError):
     def __init__(self, date_of_birth: date) -> None:
         super().__init__(f"date_of_birth {date_of_birth} must not be in the future")
         self.date_of_birth = date_of_birth
+
+
+class PatientContactNotFoundError(DomainError):
+    def __init__(self, contact_id: UUID) -> None:
+        super().__init__(f"no patient contact found with id {contact_id}")
+        self.contact_id = contact_id
+
+
+class EmergencyContactNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("full_name must not be blank")
+
+
+class EmergencyContactRelationshipRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("relationship must not be blank")
+
+
+class EmergencyContactNotFoundError(DomainError):
+    def __init__(self, contact_id: UUID) -> None:
+        super().__init__(f"no emergency contact found with id {contact_id}")
+        self.contact_id = contact_id
+
+
+class InsuranceProviderNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("provider_name must not be blank")
+
+
+class InsurancePolicyNumberRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("policy_number must not be blank")
+
+
+class InvalidInsuranceDateRangeError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("expiry_date must be after effective_date")
+
+
+class InsuranceNotFoundError(DomainError):
+    def __init__(self, insurance_id: UUID) -> None:
+        super().__init__(f"no insurance record found with id {insurance_id}")
+        self.insurance_id = insurance_id

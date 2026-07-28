@@ -11,13 +11,33 @@ No repository calls `session.commit()` — that is exclusively the
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.patient.domain.entities import Patient
-from app.modules.patient.domain.repositories import PatientRepository
-from app.modules.patient.infrastructure.mappers import apply_patient_to_model, patient_to_domain
-from app.modules.patient.infrastructure.models import PatientModel
+from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
+from app.modules.patient.domain.enums import ContactType
+from app.modules.patient.domain.repositories import (
+    EmergencyContactRepository,
+    InsuranceRepository,
+    PatientContactRepository,
+    PatientRepository,
+)
+from app.modules.patient.infrastructure.mappers import (
+    apply_emergency_contact_to_model,
+    apply_insurance_to_model,
+    apply_patient_contact_to_model,
+    apply_patient_to_model,
+    emergency_contact_to_domain,
+    insurance_to_domain,
+    patient_contact_to_domain,
+    patient_to_domain,
+)
+from app.modules.patient.infrastructure.models import (
+    EmergencyContactModel,
+    InsuranceModel,
+    PatientContactModel,
+    PatientModel,
+)
 
 
 class SqlAlchemyPatientRepository(PatientRepository):
@@ -63,3 +83,120 @@ class SqlAlchemyPatientRepository(PatientRepository):
             model = PatientModel()
             self._session.add(model)
         apply_patient_to_model(patient, model)
+
+
+class SqlAlchemyPatientContactRepository(PatientContactRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, contact_id: UUID) -> PatientContact | None:
+        model = await self._session.get(PatientContactModel, contact_id)
+        if model is None or model.deleted_at is not None:
+            return None
+        return patient_contact_to_domain(model)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientContact]:
+        stmt = (
+            select(PatientContactModel)
+            .where(
+                PatientContactModel.patient_id == patient_id,
+                PatientContactModel.deleted_at.is_(None),
+            )
+            .order_by(PatientContactModel.created_at)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [patient_contact_to_domain(model) for model in models]
+
+    async def unset_primary_for_patient_and_type(
+        self, patient_id: UUID, contact_type: ContactType
+    ) -> None:
+        stmt = (
+            update(PatientContactModel)
+            .where(
+                PatientContactModel.patient_id == patient_id,
+                PatientContactModel.contact_type == contact_type,
+                PatientContactModel.is_primary.is_(True),
+                PatientContactModel.deleted_at.is_(None),
+            )
+            .values(is_primary=False)
+        )
+        await self._session.execute(stmt)
+
+    async def add(self, contact: PatientContact) -> None:
+        model = await self._session.get(PatientContactModel, contact.id)
+        if model is None:
+            model = PatientContactModel()
+            self._session.add(model)
+        apply_patient_contact_to_model(contact, model)
+
+
+class SqlAlchemyEmergencyContactRepository(EmergencyContactRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, contact_id: UUID) -> EmergencyContact | None:
+        model = await self._session.get(EmergencyContactModel, contact_id)
+        if model is None or model.deleted_at is not None:
+            return None
+        return emergency_contact_to_domain(model)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[EmergencyContact]:
+        stmt = (
+            select(EmergencyContactModel)
+            .where(
+                EmergencyContactModel.patient_id == patient_id,
+                EmergencyContactModel.deleted_at.is_(None),
+            )
+            .order_by(EmergencyContactModel.created_at)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [emergency_contact_to_domain(model) for model in models]
+
+    async def unset_primary_for_patient(self, patient_id: UUID) -> None:
+        stmt = (
+            update(EmergencyContactModel)
+            .where(
+                EmergencyContactModel.patient_id == patient_id,
+                EmergencyContactModel.is_primary.is_(True),
+                EmergencyContactModel.deleted_at.is_(None),
+            )
+            .values(is_primary=False)
+        )
+        await self._session.execute(stmt)
+
+    async def add(self, contact: EmergencyContact) -> None:
+        model = await self._session.get(EmergencyContactModel, contact.id)
+        if model is None:
+            model = EmergencyContactModel()
+            self._session.add(model)
+        apply_emergency_contact_to_model(contact, model)
+
+
+class SqlAlchemyInsuranceRepository(InsuranceRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, insurance_id: UUID) -> Insurance | None:
+        model = await self._session.get(InsuranceModel, insurance_id)
+        if model is None or model.deleted_at is not None:
+            return None
+        return insurance_to_domain(model)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[Insurance]:
+        stmt = (
+            select(InsuranceModel)
+            .where(
+                InsuranceModel.patient_id == patient_id,
+                InsuranceModel.deleted_at.is_(None),
+            )
+            .order_by(InsuranceModel.created_at)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [insurance_to_domain(model) for model in models]
+
+    async def add(self, insurance: Insurance) -> None:
+        model = await self._session.get(InsuranceModel, insurance.id)
+        if model is None:
+            model = InsuranceModel()
+            self._session.add(model)
+        apply_insurance_to_model(insurance, model)

@@ -4,8 +4,13 @@ The only place in the module that knows both shapes. Domain entities
 never see an ORM instance; ORM instances never see a domain entity.
 """
 
-from app.modules.patient.domain.entities import Patient
-from app.modules.patient.infrastructure.models import PatientModel
+from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
+from app.modules.patient.infrastructure.models import (
+    EmergencyContactModel,
+    InsuranceModel,
+    PatientContactModel,
+    PatientModel,
+)
 from app.shared.domain.common_value_objects import EmailAddress, PhoneNumber
 
 
@@ -72,4 +77,103 @@ def apply_patient_to_model(entity: Patient, model: PatientModel) -> None:
     model.country = entity.country
     model.photo_url = entity.photo_url
     model.remarks = entity.remarks
+    model.status = entity.status
+
+
+# --- PatientContact ----------------------------------------------------
+
+
+def patient_contact_to_domain(model: PatientContactModel) -> PatientContact:
+    return PatientContact(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        contact_type=model.contact_type,
+        phone_number=PhoneNumber(model.phone_number),
+        email=EmailAddress(model.email) if model.email else None,
+        is_primary=model.is_primary,
+        is_verified=model.is_verified,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_patient_contact_to_model(entity: PatientContact, model: PatientContactModel) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.contact_type = entity.contact_type
+    model.phone_number = str(entity.phone_number)
+    model.email = str(entity.email) if entity.email else None
+    model.is_primary = entity.is_primary
+    model.is_verified = entity.is_verified
+
+
+# --- EmergencyContact ----------------------------------------------------
+
+
+def emergency_contact_to_domain(model: EmergencyContactModel) -> EmergencyContact:
+    return EmergencyContact(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        full_name=model.full_name,
+        relationship=model.relationship,
+        phone_number=PhoneNumber(model.phone_number),
+        email=EmailAddress(model.email) if model.email else None,
+        address=model.address,
+        priority=model.priority,
+        is_primary=model.is_primary,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_emergency_contact_to_model(
+    entity: EmergencyContact, model: EmergencyContactModel
+) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.full_name = entity.full_name
+    model.relationship = entity.relationship
+    model.phone_number = str(entity.phone_number)
+    model.email = str(entity.email) if entity.email else None
+    model.address = entity.address
+    model.priority = entity.priority
+    model.is_primary = entity.is_primary
+
+
+# --- Insurance ----------------------------------------------------------
+
+
+def insurance_to_domain(model: InsuranceModel) -> Insurance:
+    return Insurance(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        provider_name=model.provider_name,
+        policy_number=model.policy_number,
+        member_id=model.member_id,
+        group_number=model.group_number,
+        coverage_type=model.coverage_type,
+        effective_date=model.effective_date,
+        expiry_date=model.expiry_date,
+        status=model.status,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_insurance_to_model(entity: Insurance, model: InsuranceModel) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.provider_name = entity.provider_name
+    model.policy_number = entity.policy_number
+    model.member_id = entity.member_id
+    model.group_number = entity.group_number
+    model.coverage_type = entity.coverage_type
+    model.effective_date = entity.effective_date
+    model.expiry_date = entity.expiry_date
     model.status = entity.status

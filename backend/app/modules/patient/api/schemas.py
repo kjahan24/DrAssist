@@ -12,7 +12,14 @@ from uuid import UUID
 
 from pydantic import EmailStr, Field
 
-from app.modules.patient.domain.enums import BloodGroup, Gender, MaritalStatus, PatientStatus
+from app.modules.patient.domain.enums import (
+    BloodGroup,
+    ContactType,
+    Gender,
+    InsuranceStatus,
+    MaritalStatus,
+    PatientStatus,
+)
 from app.schemas.base import ORJSONModel
 
 
@@ -74,3 +81,69 @@ class RegisterPatientRequest(ORJSONModel):
     country: str | None = Field(default=None, max_length=100)
     photo_url: str | None = Field(default=None, max_length=500)
     remarks: str | None = Field(default=None, max_length=1000)
+
+
+class PatientContactResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    contact_type: ContactType
+    phone_number: str
+    email: EmailStr | None = None
+    is_primary: bool
+    is_verified: bool
+
+
+class AddPatientContactRequest(ORJSONModel):
+    contact_type: ContactType
+    phone_number: str = Field(min_length=1, max_length=32)
+    email: EmailStr | None = None
+    is_primary: bool = False
+    is_verified: bool = False
+
+
+class EmergencyContactResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    full_name: str
+    relationship: str
+    phone_number: str
+    email: EmailStr | None = None
+    address: str | None = None
+    priority: int | None = None
+    is_primary: bool
+
+
+class AddEmergencyContactRequest(ORJSONModel):
+    full_name: str = Field(min_length=1, max_length=200)
+    relationship: str = Field(min_length=1, max_length=100)
+    phone_number: str = Field(min_length=1, max_length=32)
+    email: EmailStr | None = None
+    address: str | None = Field(default=None, max_length=500)
+    priority: int | None = None
+    is_primary: bool = False
+
+
+class InsuranceResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    provider_name: str
+    policy_number: str
+    member_id: str | None = None
+    group_number: str | None = None
+    coverage_type: str | None = None
+    effective_date: date
+    expiry_date: date
+    status: InsuranceStatus
+
+
+class AddInsuranceRequest(ORJSONModel):
+    provider_name: str = Field(min_length=1, max_length=200)
+    policy_number: str = Field(min_length=1, max_length=100)
+    member_id: str | None = Field(default=None, max_length=100)
+    group_number: str | None = Field(default=None, max_length=100)
+    coverage_type: str | None = Field(default=None, max_length=100)
+    effective_date: date
+    expiry_date: date
