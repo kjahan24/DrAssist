@@ -14,28 +14,43 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
-from app.modules.patient.domain.enums import ContactType
+from app.modules.patient.domain.entities import (
+    EmergencyContact,
+    Insurance,
+    Patient,
+    PatientAllergy,
+    PatientContact,
+    PatientMedication,
+)
+from app.modules.patient.domain.enums import AllergyStatus, ContactType
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
+    PatientAllergyRepository,
     PatientContactRepository,
+    PatientMedicationRepository,
     PatientRepository,
 )
 from app.modules.patient.infrastructure.mappers import (
     apply_emergency_contact_to_model,
     apply_insurance_to_model,
+    apply_patient_allergy_to_model,
     apply_patient_contact_to_model,
+    apply_patient_medication_to_model,
     apply_patient_to_model,
     emergency_contact_to_domain,
     insurance_to_domain,
+    patient_allergy_to_domain,
     patient_contact_to_domain,
+    patient_medication_to_domain,
     patient_to_domain,
 )
 from app.modules.patient.infrastructure.models import (
     EmergencyContactModel,
     InsuranceModel,
+    PatientAllergyModel,
     PatientContactModel,
+    PatientMedicationModel,
     PatientModel,
 )
 
@@ -200,3 +215,75 @@ class SqlAlchemyInsuranceRepository(InsuranceRepository):
             model = InsuranceModel()
             self._session.add(model)
         apply_insurance_to_model(insurance, model)
+
+
+class SqlAlchemyPatientAllergyRepository(PatientAllergyRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, allergy_id: UUID) -> PatientAllergy | None:
+        model = await self._session.get(PatientAllergyModel, allergy_id)
+        if model is None or model.deleted_at is not None:
+            return None
+        return patient_allergy_to_domain(model)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientAllergy]:
+        stmt = (
+            select(PatientAllergyModel)
+            .where(
+                PatientAllergyModel.patient_id == patient_id,
+                PatientAllergyModel.deleted_at.is_(None),
+            )
+            .order_by(PatientAllergyModel.created_at)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [patient_allergy_to_domain(model) for model in models]
+
+    async def get_active_by_patient_and_allergen(
+        self, *, patient_id: UUID, allergen_name: str
+    ) -> PatientAllergy | None:
+        stmt = select(PatientAllergyModel).where(
+            PatientAllergyModel.patient_id == patient_id,
+            PatientAllergyModel.allergen_name == allergen_name.strip(),
+            PatientAllergyModel.status == AllergyStatus.ACTIVE,
+            PatientAllergyModel.deleted_at.is_(None),
+        )
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return patient_allergy_to_domain(model) if model is not None else None
+
+    async def add(self, allergy: PatientAllergy) -> None:
+        model = await self._session.get(PatientAllergyModel, allergy.id)
+        if model is None:
+            model = PatientAllergyModel()
+            self._session.add(model)
+        apply_patient_allergy_to_model(allergy, model)
+
+
+class SqlAlchemyPatientMedicationRepository(PatientMedicationRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, medication_id: UUID) -> PatientMedication | None:
+        model = await self._session.get(PatientMedicationModel, medication_id)
+        if model is None or model.deleted_at is not None:
+            return None
+        return patient_medication_to_domain(model)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientMedication]:
+        stmt = (
+            select(PatientMedicationModel)
+            .where(
+                PatientMedicationModel.patient_id == patient_id,
+                PatientMedicationModel.deleted_at.is_(None),
+            )
+            .order_by(PatientMedicationModel.created_at)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [patient_medication_to_domain(model) for model in models]
+
+    async def add(self, medication: PatientMedication) -> None:
+        model = await self._session.get(PatientMedicationModel, medication.id)
+        if model is None:
+            model = PatientMedicationModel()
+            self._session.add(model)
+        apply_patient_medication_to_model(medication, model)

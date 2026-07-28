@@ -9,14 +9,25 @@ these, never on a real database or another module's facade.
 
 from uuid import UUID
 
+from app.modules.doctor.public.dto import DoctorSummaryDTO
+from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.organization.public.dto import OrganizationSummaryDTO
 from app.modules.organization.public.interfaces import OrganizationQueryPort
-from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
-from app.modules.patient.domain.enums import ContactType
+from app.modules.patient.domain.entities import (
+    EmergencyContact,
+    Insurance,
+    Patient,
+    PatientAllergy,
+    PatientContact,
+    PatientMedication,
+)
+from app.modules.patient.domain.enums import AllergyStatus, ContactType
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
+    PatientAllergyRepository,
     PatientContactRepository,
+    PatientMedicationRepository,
     PatientRepository,
 )
 from app.shared.application.unit_of_work import UnitOfWork
@@ -109,6 +120,47 @@ class FakeInsuranceRepository(InsuranceRepository):
         self._insurance[insurance.id] = insurance
 
 
+class FakePatientAllergyRepository(PatientAllergyRepository):
+    def __init__(self) -> None:
+        self._allergies: dict[UUID, PatientAllergy] = {}
+
+    async def get_by_id(self, allergy_id: UUID) -> PatientAllergy | None:
+        return self._allergies.get(allergy_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientAllergy]:
+        return [a for a in self._allergies.values() if a.patient_id == patient_id]
+
+    async def get_active_by_patient_and_allergen(
+        self, *, patient_id: UUID, allergen_name: str
+    ) -> PatientAllergy | None:
+        normalized = allergen_name.strip().lower()
+        for allergy in self._allergies.values():
+            if (
+                allergy.patient_id == patient_id
+                and allergy.allergen_name.lower() == normalized
+                and allergy.status is AllergyStatus.ACTIVE
+            ):
+                return allergy
+        return None
+
+    async def add(self, allergy: PatientAllergy) -> None:
+        self._allergies[allergy.id] = allergy
+
+
+class FakePatientMedicationRepository(PatientMedicationRepository):
+    def __init__(self) -> None:
+        self._medications: dict[UUID, PatientMedication] = {}
+
+    async def get_by_id(self, medication_id: UUID) -> PatientMedication | None:
+        return self._medications.get(medication_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientMedication]:
+        return [m for m in self._medications.values() if m.patient_id == patient_id]
+
+    async def add(self, medication: PatientMedication) -> None:
+        self._medications[medication.id] = medication
+
+
 class FakeUnitOfWork(UnitOfWork):
     def __init__(self) -> None:
         self.committed = False
@@ -151,4 +203,21 @@ class FakeOrganizationQueryPort(OrganizationQueryPort):
         raise NotImplementedError("not exercised by any use case tested against this fake")
 
     async def get_default_timezone(self, organization_id: UUID) -> str | None:
+        raise NotImplementedError("not exercised by any use case tested against this fake")
+
+
+class FakeDoctorQueryPort(DoctorQueryPort):
+    """Backed by a settable set of "existing" doctor ids —
+    `RecordPatientAllergy` only calls `doctor_exists`."""
+
+    def __init__(self, *, existing_doctor_ids: set[UUID] | None = None) -> None:
+        self.existing_doctor_ids = existing_doctor_ids or set()
+
+    async def doctor_exists(self, doctor_id: UUID) -> bool:
+        return doctor_id in self.existing_doctor_ids
+
+    async def is_active(self, doctor_id: UUID) -> bool:
+        return doctor_id in self.existing_doctor_ids
+
+    async def get_doctor_summary(self, doctor_id: UUID) -> DoctorSummaryDTO | None:
         raise NotImplementedError("not exercised by any use case tested against this fake")

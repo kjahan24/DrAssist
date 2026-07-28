@@ -54,3 +54,41 @@ class InsuranceStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     CANCELLED = "cancelled"
+
+
+class AllergyType(StrEnum):
+    DRUG = "drug"
+    FOOD = "food"
+    ENVIRONMENTAL = "environmental"
+    INSECT = "insect"
+    LATEX = "latex"
+    OTHER = "other"
+
+
+class AllergySeverity(StrEnum):
+    MILD = "mild"
+    MODERATE = "moderate"
+    SEVERE = "severe"
+    LIFE_THREATENING = "life_threatening"
+
+
+class AllergyStatus(StrEnum):
+    ACTIVE = "active"
+    RESOLVED = "resolved"
+
+
+class RouteOfAdministration(StrEnum):
+    ORAL = "oral"
+    IV = "iv"
+    IM = "im"
+    SC = "sc"
+    TOPICAL = "topical"
+    INHALATION = "inhalation"
+    OTHER = "other"
+
+
+class AdherenceStatus(StrEnum):
+    TAKING = "taking"
+    STOPPED = "stopped"
+    COMPLETED = "completed"
+    UNKNOWN = "unknown"

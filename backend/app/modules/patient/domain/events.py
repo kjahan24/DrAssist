@@ -7,6 +7,7 @@ successfully — see `app.shared.application.unit_of_work.UnitOfWork` and
 """
 
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID
 
 from app.shared.domain.domain_event import DomainEvent
@@ -77,3 +78,57 @@ class InsuranceStatusChanged(DomainEvent):
     insurance_id: UUID
     patient_id: UUID
     status: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientAllergyRecorded(DomainEvent):
+    allergy_id: UUID
+    patient_id: UUID
+    allergen_name: str
+    severity: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientAllergyUpdated(DomainEvent):
+    allergy_id: UUID
+    patient_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientAllergyStatusChanged(DomainEvent):
+    allergy_id: UUID
+    patient_id: UUID
+    status: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientAllergyVerified(DomainEvent):
+    allergy_id: UUID
+    patient_id: UUID
+    verified_by: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicationAdded(DomainEvent):
+    medication_id: UUID
+    patient_id: UUID
+    medication_name: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicationUpdated(DomainEvent):
+    medication_id: UUID
+    patient_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicationDiscontinued(DomainEvent):
+    medication_id: UUID
+    patient_id: UUID
+    end_date: date
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicationResumed(DomainEvent):
+    medication_id: UUID
+    patient_id: UUID

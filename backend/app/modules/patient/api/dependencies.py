@@ -9,9 +9,10 @@ transaction) — see
 `docs/backend-architecture/05_dependency_injection_and_lifecycle.md`.
 
 `RegisterPatient` additionally needs the Organization module's public
-facade; that is built via its own `build_organization_facade`
-composition root (bound to the same `session`) rather than duplicating
-facade construction here — the same pattern
+facade, and `RecordPatientAllergy` needs the Doctor module's public
+facade; both are built via their own `build_organization_facade`/
+`build_doctor_facade` composition roots (bound to the same `session`)
+rather than duplicating facade construction here — the same pattern
 `app.modules.doctor.api.dependencies` established.
 """
 
@@ -21,23 +22,31 @@ from fastapi import Depends
 
 from app.api.deps import DbSession
 from app.core.container import get_event_bus
+from app.modules.doctor.container import build_doctor_facade
+from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.organization.container import build_organization_facade
 from app.modules.organization.public.interfaces import OrganizationQueryPort
 from app.modules.patient.application.services.patient_query_service import PatientQueryService
 from app.modules.patient.application.use_cases.add_emergency_contact import AddEmergencyContact
 from app.modules.patient.application.use_cases.add_insurance import AddInsurance
 from app.modules.patient.application.use_cases.add_patient_contact import AddPatientContact
+from app.modules.patient.application.use_cases.add_patient_medication import AddPatientMedication
+from app.modules.patient.application.use_cases.record_patient_allergy import RecordPatientAllergy
 from app.modules.patient.application.use_cases.register_patient import RegisterPatient
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
+    PatientAllergyRepository,
     PatientContactRepository,
+    PatientMedicationRepository,
     PatientRepository,
 )
 from app.modules.patient.infrastructure.repositories import (
     SqlAlchemyEmergencyContactRepository,
     SqlAlchemyInsuranceRepository,
+    SqlAlchemyPatientAllergyRepository,
     SqlAlchemyPatientContactRepository,
+    SqlAlchemyPatientMedicationRepository,
     SqlAlchemyPatientRepository,
 )
 from app.shared.application.unit_of_work import UnitOfWork
@@ -60,6 +69,14 @@ def get_insurance_repository(session: DbSession) -> InsuranceRepository:
     return SqlAlchemyInsuranceRepository(session)
 
 
+def get_patient_allergy_repository(session: DbSession) -> PatientAllergyRepository:
+    return SqlAlchemyPatientAllergyRepository(session)
+
+
+def get_patient_medication_repository(session: DbSession) -> PatientMedicationRepository:
+    return SqlAlchemyPatientMedicationRepository(session)
+
+
 def get_unit_of_work(session: DbSession) -> UnitOfWork:
     return SqlAlchemyUnitOfWork(session, event_bus=get_event_bus())
 
@@ -68,14 +85,23 @@ def get_organization_query_port(session: DbSession) -> OrganizationQueryPort:
     return build_organization_facade(session)
 
 
+def get_doctor_query_port(session: DbSession) -> DoctorQueryPort:
+    return build_doctor_facade(session)
+
+
 PatientRepo = Annotated[PatientRepository, Depends(get_patient_repository)]
 PatientContactRepo = Annotated[PatientContactRepository, Depends(get_patient_contact_repository)]
 EmergencyContactRepo = Annotated[
     EmergencyContactRepository, Depends(get_emergency_contact_repository)
 ]
 InsuranceRepo = Annotated[InsuranceRepository, Depends(get_insurance_repository)]
+PatientAllergyRepo = Annotated[PatientAllergyRepository, Depends(get_patient_allergy_repository)]
+PatientMedicationRepo = Annotated[
+    PatientMedicationRepository, Depends(get_patient_medication_repository)
+]
 Uow = Annotated[UnitOfWork, Depends(get_unit_of_work)]
 OrgQueryPort = Annotated[OrganizationQueryPort, Depends(get_organization_query_port)]
+DoctorPort = Annotated[DoctorQueryPort, Depends(get_doctor_query_port)]
 
 
 def get_patient_query_service(patient_repository: PatientRepo) -> PatientQueryService:
@@ -126,5 +152,33 @@ def get_add_insurance_use_case(
     return AddInsurance(
         insurance_repository=insurance_repository,
         patient_repository=patient_repository,
+        unit_of_work=unit_of_work,
+    )
+
+
+def get_record_patient_allergy_use_case(
+    patient_allergy_repository: PatientAllergyRepo,
+    patient_repository: PatientRepo,
+    doctor_query_port: DoctorPort,
+    unit_of_work: Uow,
+) -> RecordPatientAllergy:
+    return RecordPatientAllergy(
+        patient_allergy_repository=patient_allergy_repository,
+        patient_repository=patient_repository,
+        doctor_query_port=doctor_query_port,
+        unit_of_work=unit_of_work,
+    )
+
+
+def get_add_patient_medication_use_case(
+    patient_medication_repository: PatientMedicationRepo,
+    patient_repository: PatientRepo,
+    doctor_query_port: DoctorPort,
+    unit_of_work: Uow,
+) -> AddPatientMedication:
+    return AddPatientMedication(
+        patient_medication_repository=patient_medication_repository,
+        patient_repository=patient_repository,
+        doctor_query_port=doctor_query_port,
         unit_of_work=unit_of_work,
     )

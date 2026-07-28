@@ -90,3 +90,54 @@ class InsuranceNotFoundError(DomainError):
     def __init__(self, insurance_id: UUID) -> None:
         super().__init__(f"no insurance record found with id {insurance_id}")
         self.insurance_id = insurance_id
+
+
+class AllergenNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("allergen_name must not be blank")
+
+
+class DuplicateActiveAllergyError(DomainError):
+    def __init__(self, patient_id: UUID, allergen_name: str) -> None:
+        super().__init__(f"patient {patient_id} already has an active allergy to {allergen_name!r}")
+        self.patient_id = patient_id
+        self.allergen_name = allergen_name
+
+
+class VerifiedDateRequiresVerifiedByError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("verified_date must not be set without verified_by")
+
+
+class PatientAllergyNotFoundError(DomainError):
+    def __init__(self, allergy_id: UUID) -> None:
+        super().__init__(f"no patient allergy found with id {allergy_id}")
+        self.allergy_id = allergy_id
+
+
+class MedicationNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("medication_name must not be blank")
+
+
+class DosageRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("dosage must not be blank")
+
+
+class InvalidMedicationDateRangeError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("end_date must not be before start_date")
+
+
+class EndDateRequiredForCompletedMedicationError(DomainError):
+    def __init__(self) -> None:
+        super().__init__(
+            "end_date is required when is_current is false and adherence_status is completed"
+        )
+
+
+class PatientMedicationNotFoundError(DomainError):
+    def __init__(self, medication_id: UUID) -> None:
+        super().__init__(f"no patient medication found with id {medication_id}")
+        self.medication_id = medication_id

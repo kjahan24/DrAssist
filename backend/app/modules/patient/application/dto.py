@@ -11,12 +11,17 @@ from datetime import date
 from uuid import UUID
 
 from app.modules.patient.domain.enums import (
+    AdherenceStatus,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyType,
     BloodGroup,
     ContactType,
     Gender,
     InsuranceStatus,
     MaritalStatus,
     PatientStatus,
+    RouteOfAdministration,
 )
 
 # --- RegisterPatient --------------------------------------------------------
@@ -129,6 +134,65 @@ class AddInsuranceOutput:
     patient_id: UUID
     policy_number: str
     status: InsuranceStatus
+
+
+# --- RecordPatientAllergy ----------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class RecordPatientAllergyInput:
+    patient_id: UUID
+    allergy_type: AllergyType
+    allergen_name: str
+    severity: AllergySeverity
+    reaction: str | None = None
+    onset_date: date | None = None
+    notes: str | None = None
+    verified_by: UUID | None = None
+    verified_date: date | None = None
+    created_by: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RecordPatientAllergyOutput:
+    allergy_id: UUID
+    patient_id: UUID
+    allergen_name: str
+    severity: AllergySeverity
+    status: AllergyStatus
+
+
+# --- AddPatientMedication -----------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AddPatientMedicationInput:
+    patient_id: UUID
+    medication_name: str
+    dosage: str
+    route: RouteOfAdministration
+    start_date: date
+    prescribed_by: UUID | None = None
+    generic_name: str | None = None
+    brand_name: str | None = None
+    dosage_unit: str | None = None
+    frequency: str | None = None
+    indication: str | None = None
+    end_date: date | None = None
+    is_current: bool = True
+    adherence_status: AdherenceStatus = AdherenceStatus.TAKING
+    instructions: str | None = None
+    notes: str | None = None
+    created_by: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AddPatientMedicationOutput:
+    medication_id: UUID
+    patient_id: UUID
+    medication_name: str
+    is_current: bool
+    adherence_status: AdherenceStatus
 
 
 # --- Cross-cutting read models (also re-exported via public/dto.py) --------

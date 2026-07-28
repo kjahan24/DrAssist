@@ -1,14 +1,19 @@
 """SQLAlchemy ORM models for the Patient module.
 
-Four tables: `patients`, `patient_contacts`, `emergency_contacts`,
-`insurances` (all three many-to-one with `patients`). See
-`app.modules.patient.container` for the module's scope note.
+Six tables: `patients`, `patient_contacts`, `emergency_contacts`,
+`insurances`, `patient_allergies`, `patient_medications` (all five
+many-to-one with `patients`). See `app.modules.patient.container` for the
+module's scope note.
 
 `patients.organization_id` carries a real foreign key to
 `organizations.id` — like the Doctor module's tables, this is a brand-new
 column on a brand-new table, so there is no backward-compatibility
-reason to defer it. Neither `organizations` nor any prior module's tables
-are modified by these migrations.
+reason to defer it. `patient_allergies.verified_by` and
+`patient_medications.prescribed_by` carry real foreign keys to
+`doctors.id` (the Doctor module's table) — see those columns' own
+comments below for why they use `ON DELETE SET NULL` rather than
+`RESTRICT`. Neither `organizations`, `doctors`, nor any prior module's
+tables are modified by these migrations.
 """
 
 import uuid
@@ -27,12 +32,17 @@ from app.infrastructure.database.base import (
     pg_enum,
 )
 from app.modules.patient.domain.enums import (
+    AdherenceStatus,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyType,
     BloodGroup,
     ContactType,
     Gender,
     InsuranceStatus,
     MaritalStatus,
     PatientStatus,
+    RouteOfAdministration,
 )
 
 _patient_status_enum = pg_enum(PatientStatus, "patient_status_enum")
@@ -41,6 +51,11 @@ _blood_group_enum = pg_enum(BloodGroup, "blood_group_enum")
 _marital_status_enum = pg_enum(MaritalStatus, "marital_status_enum")
 _contact_type_enum = pg_enum(ContactType, "contact_type_enum")
 _insurance_status_enum = pg_enum(InsuranceStatus, "insurance_status_enum")
+_allergy_type_enum = pg_enum(AllergyType, "allergy_type_enum")
+_allergy_severity_enum = pg_enum(AllergySeverity, "allergy_severity_enum")
+_allergy_status_enum = pg_enum(AllergyStatus, "allergy_status_enum")
+_route_of_administration_enum = pg_enum(RouteOfAdministration, "route_of_administration_enum")
+_adherence_status_enum = pg_enum(AdherenceStatus, "adherence_status_enum")
 
 
 class PatientModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin):
@@ -172,4 +187,103 @@ class InsuranceModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin,
     __table_args__ = (
         Index("ix_insurances_patient_id", "patient_id"),
         CheckConstraint("expiry_date > effective_date", name="expiry_after_effective"),
+    )
+
+
+class PatientAllergyModel(
+    Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin
+):
+    __tablename__ = "patient_allergies"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    patient_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    allergy_type: Mapped[AllergyType] = mapped_column(_allergy_type_enum, nullable=False)
+    allergen_name: Mapped[str] = mapped_column(CITEXT, nullable=False)
+    severity: Mapped[AllergySeverity] = mapped_column(_allergy_severity_enum, nullable=False)
+    reaction: Mapped[str | None] = mapped_column(Text, default=None)
+    onset_date: Mapped[date | None] = mapped_column(default=None)
+    status: Mapped[AllergyStatus] = mapped_column(
+        _allergy_status_enum, nullable=False, default=AllergyStatus.ACTIVE
+    )
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
+    # References `doctors.id`, not the `AuditActorMixin` `created_by`/
+    # `updated_by` columns above (those track who edited the row generically;
+    # this tracks which doctor clinically verified the allergy). `SET NULL`
+    # rather than `RESTRICT` so a doctor's record can still be removed
+    # without being blocked by every allergy they've ever verified —
+    # historical attribution is best-effort, not load-bearing, the same
+    # reasoning `AuditActorMixin` itself documents for `created_by`/
+    # `updated_by`.
+    verified_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("doctors.id", ondelete="SET NULL"), default=None
+    )
+    verified_date: Mapped[date | None] = mapped_column(default=None)
+
+    __table_args__ = (
+        Index(
+            "uq_patient_allergies_active_per_patient_and_allergen",
+            "patient_id",
+            "allergen_name",
+            unique=True,
+            postgresql_where=text("status = 'active' AND deleted_at IS NULL"),
+        ),
+        Index("ix_patient_allergies_patient_id", "patient_id"),
+        CheckConstraint(
+            "verified_date IS NULL OR verified_by IS NOT NULL",
+            name="verified_date_requires_verified_by",
+        ),
+    )
+
+
+class PatientMedicationModel(
+    Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin
+):
+    __tablename__ = "patient_medications"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    patient_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    medication_name: Mapped[str] = mapped_column(Text, nullable=False)
+    dosage: Mapped[str] = mapped_column(Text, nullable=False)
+    route: Mapped[RouteOfAdministration] = mapped_column(
+        _route_of_administration_enum, nullable=False
+    )
+    start_date: Mapped[date] = mapped_column(nullable=False)
+    # References `doctors.id`, not the `AuditActorMixin` `created_by`/
+    # `updated_by` columns above — see the identical reasoning on
+    # `PatientAllergyModel.verified_by`. `SET NULL` rather than `RESTRICT`
+    # for the same reason: a doctor's record can still be removed without
+    # being blocked by every medication they've ever prescribed.
+    prescribed_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("doctors.id", ondelete="SET NULL"), default=None
+    )
+    generic_name: Mapped[str | None] = mapped_column(Text, default=None)
+    brand_name: Mapped[str | None] = mapped_column(Text, default=None)
+    dosage_unit: Mapped[str | None] = mapped_column(Text, default=None)
+    frequency: Mapped[str | None] = mapped_column(Text, default=None)
+    indication: Mapped[str | None] = mapped_column(Text, default=None)
+    end_date: Mapped[date | None] = mapped_column(default=None)
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    adherence_status: Mapped[AdherenceStatus] = mapped_column(
+        _adherence_status_enum, nullable=False, default=AdherenceStatus.TAKING
+    )
+    instructions: Mapped[str | None] = mapped_column(Text, default=None)
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
+
+    __table_args__ = (
+        Index("ix_patient_medications_patient_id", "patient_id"),
+        CheckConstraint(
+            "end_date IS NULL OR end_date >= start_date", name="end_date_not_before_start_date"
+        ),
+        CheckConstraint(
+            "is_current OR adherence_status != 'completed' OR end_date IS NOT NULL",
+            name="end_date_required_for_completed",
+        ),
     )

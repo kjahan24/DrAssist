@@ -13,12 +13,17 @@ from uuid import UUID
 from pydantic import EmailStr, Field
 
 from app.modules.patient.domain.enums import (
+    AdherenceStatus,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyType,
     BloodGroup,
     ContactType,
     Gender,
     InsuranceStatus,
     MaritalStatus,
     PatientStatus,
+    RouteOfAdministration,
 )
 from app.schemas.base import ORJSONModel
 
@@ -147,3 +152,68 @@ class AddInsuranceRequest(ORJSONModel):
     coverage_type: str | None = Field(default=None, max_length=100)
     effective_date: date
     expiry_date: date
+
+
+class PatientAllergyResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    allergy_type: AllergyType
+    allergen_name: str
+    severity: AllergySeverity
+    reaction: str | None = None
+    onset_date: date | None = None
+    status: AllergyStatus
+    notes: str | None = None
+    verified_by: UUID | None = None
+    verified_date: date | None = None
+
+
+class RecordPatientAllergyRequest(ORJSONModel):
+    allergy_type: AllergyType
+    allergen_name: str = Field(min_length=1, max_length=200)
+    severity: AllergySeverity
+    reaction: str | None = Field(default=None, max_length=500)
+    onset_date: date | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+    verified_by: UUID | None = None
+    verified_date: date | None = None
+
+
+class PatientMedicationResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    prescribed_by: UUID | None = None
+    medication_name: str
+    generic_name: str | None = None
+    brand_name: str | None = None
+    dosage: str
+    dosage_unit: str | None = None
+    route: RouteOfAdministration
+    frequency: str | None = None
+    indication: str | None = None
+    start_date: date
+    end_date: date | None = None
+    is_current: bool
+    adherence_status: AdherenceStatus
+    instructions: str | None = None
+    notes: str | None = None
+
+
+class AddPatientMedicationRequest(ORJSONModel):
+    prescribed_by: UUID | None = None
+    medication_name: str = Field(min_length=1, max_length=200)
+    generic_name: str | None = Field(default=None, max_length=200)
+    brand_name: str | None = Field(default=None, max_length=200)
+    dosage: str = Field(min_length=1, max_length=100)
+    dosage_unit: str | None = Field(default=None, max_length=50)
+    route: RouteOfAdministration
+    frequency: str | None = Field(default=None, max_length=200)
+    indication: str | None = Field(default=None, max_length=200)
+    start_date: date
+    end_date: date | None = None
+    is_current: bool = True
+    adherence_status: AdherenceStatus = AdherenceStatus.TAKING
+    instructions: str | None = Field(default=None, max_length=1000)
+    notes: str | None = Field(default=None, max_length=1000)

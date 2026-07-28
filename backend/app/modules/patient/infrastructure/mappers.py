@@ -4,11 +4,20 @@ The only place in the module that knows both shapes. Domain entities
 never see an ORM instance; ORM instances never see a domain entity.
 """
 
-from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
+from app.modules.patient.domain.entities import (
+    EmergencyContact,
+    Insurance,
+    Patient,
+    PatientAllergy,
+    PatientContact,
+    PatientMedication,
+)
 from app.modules.patient.infrastructure.models import (
     EmergencyContactModel,
     InsuranceModel,
+    PatientAllergyModel,
     PatientContactModel,
+    PatientMedicationModel,
     PatientModel,
 )
 from app.shared.domain.common_value_objects import EmailAddress, PhoneNumber
@@ -177,3 +186,91 @@ def apply_insurance_to_model(entity: Insurance, model: InsuranceModel) -> None:
     model.effective_date = entity.effective_date
     model.expiry_date = entity.expiry_date
     model.status = entity.status
+
+
+# --- PatientAllergy ------------------------------------------------------
+
+
+def patient_allergy_to_domain(model: PatientAllergyModel) -> PatientAllergy:
+    return PatientAllergy(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        allergy_type=model.allergy_type,
+        allergen_name=model.allergen_name,
+        severity=model.severity,
+        reaction=model.reaction,
+        onset_date=model.onset_date,
+        status=model.status,
+        notes=model.notes,
+        verified_by=model.verified_by,
+        verified_date=model.verified_date,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_patient_allergy_to_model(entity: PatientAllergy, model: PatientAllergyModel) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.allergy_type = entity.allergy_type
+    model.allergen_name = entity.allergen_name
+    model.severity = entity.severity
+    model.reaction = entity.reaction
+    model.onset_date = entity.onset_date
+    model.status = entity.status
+    model.notes = entity.notes
+    model.verified_by = entity.verified_by
+    model.verified_date = entity.verified_date
+
+
+# --- PatientMedication -----------------------------------------------------
+
+
+def patient_medication_to_domain(model: PatientMedicationModel) -> PatientMedication:
+    return PatientMedication(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        medication_name=model.medication_name,
+        dosage=model.dosage,
+        route=model.route,
+        start_date=model.start_date,
+        prescribed_by=model.prescribed_by,
+        generic_name=model.generic_name,
+        brand_name=model.brand_name,
+        dosage_unit=model.dosage_unit,
+        frequency=model.frequency,
+        indication=model.indication,
+        end_date=model.end_date,
+        is_current=model.is_current,
+        adherence_status=model.adherence_status,
+        instructions=model.instructions,
+        notes=model.notes,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_patient_medication_to_model(
+    entity: PatientMedication, model: PatientMedicationModel
+) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.medication_name = entity.medication_name
+    model.dosage = entity.dosage
+    model.route = entity.route
+    model.start_date = entity.start_date
+    model.prescribed_by = entity.prescribed_by
+    model.generic_name = entity.generic_name
+    model.brand_name = entity.brand_name
+    model.dosage_unit = entity.dosage_unit
+    model.frequency = entity.frequency
+    model.indication = entity.indication
+    model.end_date = entity.end_date
+    model.is_current = entity.is_current
+    model.adherence_status = entity.adherence_status
+    model.instructions = entity.instructions
+    model.notes = entity.notes

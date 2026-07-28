@@ -12,7 +12,14 @@ tracking.
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from app.modules.patient.domain.entities import EmergencyContact, Insurance, Patient, PatientContact
+from app.modules.patient.domain.entities import (
+    EmergencyContact,
+    Insurance,
+    Patient,
+    PatientAllergy,
+    PatientContact,
+    PatientMedication,
+)
 from app.modules.patient.domain.enums import ContactType
 
 
@@ -83,3 +90,33 @@ class InsuranceRepository(ABC):
 
     @abstractmethod
     async def add(self, insurance: Insurance) -> None: ...
+
+
+class PatientAllergyRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, allergy_id: UUID) -> PatientAllergy | None: ...
+
+    @abstractmethod
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientAllergy]: ...
+
+    @abstractmethod
+    async def get_active_by_patient_and_allergen(
+        self, *, patient_id: UUID, allergen_name: str
+    ) -> PatientAllergy | None:
+        """Used to enforce "duplicate active allergy (same patient +
+        allergen) is not allowed" before adding a new one."""
+        ...
+
+    @abstractmethod
+    async def add(self, allergy: PatientAllergy) -> None: ...
+
+
+class PatientMedicationRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, medication_id: UUID) -> PatientMedication | None: ...
+
+    @abstractmethod
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientMedication]: ...
+
+    @abstractmethod
+    async def add(self, medication: PatientMedication) -> None: ...

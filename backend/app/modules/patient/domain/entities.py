@@ -1,14 +1,21 @@
 """Patient module aggregate roots: `Patient`, `PatientContact`,
-`EmergencyContact`, `Insurance`.
+`EmergencyContact`, `Insurance`, `PatientAllergy`, `PatientMedication`.
 
-`PatientContact`, `EmergencyContact`, and `Insurance` are modeled as their
-own aggregates (many-to-one with `Patient`), the same reasoning
+`PatientContact`, `EmergencyContact`, `Insurance`, `PatientAllergy`, and
+`PatientMedication` are modeled as their own aggregates (many-to-one with
+`Patient`), the same reasoning
 `DoctorLicense`/`DoctorSpecialization`/`DoctorSchedule` are independent of
 `Doctor` in `app.modules.doctor.domain.entities` — each aggregate
 reference to `Patient` is by ID only (never an object reference), see
-`docs/backend-architecture/03_module_architecture.md`. All mutation goes
-through named methods that enforce the aggregate's invariants and record
-domain events; nothing here performs I/O beyond reading the wall clock for
+`docs/backend-architecture/03_module_architecture.md`.
+`PatientAllergy.verified_by`/`PatientMedication.prescribed_by` are
+likewise ID-only references to a `Doctor` in a *different* module —
+validated by the application layer via the Doctor module's public
+`DoctorQueryPort` (see `application/use_cases/record_patient_allergy.py`
+and `application/use_cases/add_patient_medication.py`), never by
+importing across `domain/` packages. All mutation goes through named
+methods that enforce the aggregate's invariants and record domain
+events; nothing here performs I/O beyond reading the wall clock for
 date-range checks (the same precedent `AggregateRoot.touch()` already
 establishes for timestamps).
 """
@@ -18,12 +25,17 @@ from datetime import date
 from uuid import UUID
 
 from app.modules.patient.domain.enums import (
+    AdherenceStatus,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyType,
     BloodGroup,
     ContactType,
     Gender,
     InsuranceStatus,
     MaritalStatus,
     PatientStatus,
+    RouteOfAdministration,
 )
 from app.modules.patient.domain.events import (
     EmergencyContactAdded,
@@ -31,22 +43,36 @@ from app.modules.patient.domain.events import (
     InsuranceAdded,
     InsuranceStatusChanged,
     InsuranceUpdated,
+    PatientAllergyRecorded,
+    PatientAllergyStatusChanged,
+    PatientAllergyUpdated,
+    PatientAllergyVerified,
     PatientContactAdded,
     PatientContactUpdated,
     PatientDetailsUpdated,
+    PatientMedicationAdded,
+    PatientMedicationDiscontinued,
+    PatientMedicationResumed,
+    PatientMedicationUpdated,
     PatientRegistered,
     PatientStatusChanged,
 )
 from app.modules.patient.domain.exceptions import (
+    AllergenNameRequiredError,
+    DosageRequiredError,
     EmergencyContactNameRequiredError,
     EmergencyContactRelationshipRequiredError,
+    EndDateRequiredForCompletedMedicationError,
     FirstNameRequiredError,
     FutureDateOfBirthError,
     InsurancePolicyNumberRequiredError,
     InsuranceProviderNameRequiredError,
     InvalidInsuranceDateRangeError,
+    InvalidMedicationDateRangeError,
     LastNameRequiredError,
+    MedicationNameRequiredError,
     PatientNumberRequiredError,
+    VerifiedDateRequiresVerifiedByError,
 )
 from app.shared.domain.common_value_objects import EmailAddress, PhoneNumber
 from app.shared.domain.entity import AggregateRoot
@@ -546,3 +572,296 @@ class Insurance(AggregateRoot):
 def _validate_insurance_date_range(effective_date: date, expiry_date: date) -> None:
     if expiry_date <= effective_date:
         raise InvalidInsuranceDateRangeError()
+
+
+@dataclass(kw_only=True, eq=False)
+class PatientAllergy(AggregateRoot):
+    organization_id: UUID
+    patient_id: UUID
+    allergy_type: AllergyType
+    allergen_name: str
+    severity: AllergySeverity
+    reaction: str | None = None
+    onset_date: date | None = None
+    status: AllergyStatus = AllergyStatus.ACTIVE
+    notes: str | None = None
+    verified_by: UUID | None = None
+    verified_date: date | None = None
+
+    def __post_init__(self) -> None:
+        if not self.allergen_name or not self.allergen_name.strip():
+            raise AllergenNameRequiredError()
+        self.allergen_name = self.allergen_name.strip()
+
+        _validate_verification_pairing(
+            verified_by=self.verified_by, verified_date=self.verified_date
+        )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        organization_id: UUID,
+        patient_id: UUID,
+        allergy_type: AllergyType,
+        allergen_name: str,
+        severity: AllergySeverity,
+        reaction: str | None = None,
+        onset_date: date | None = None,
+        notes: str | None = None,
+        verified_by: UUID | None = None,
+        verified_date: date | None = None,
+    ) -> "PatientAllergy":
+        allergy = cls(
+            organization_id=organization_id,
+            patient_id=patient_id,
+            allergy_type=allergy_type,
+            allergen_name=allergen_name,
+            severity=severity,
+            reaction=reaction,
+            onset_date=onset_date,
+            notes=notes,
+            verified_by=verified_by,
+            verified_date=verified_date,
+        )
+        allergy.record_event(
+            PatientAllergyRecorded(
+                allergy_id=allergy.id,
+                patient_id=patient_id,
+                allergen_name=allergy.allergen_name,
+                severity=severity.value,
+            )
+        )
+        return allergy
+
+    def update_details(
+        self,
+        *,
+        allergy_type: AllergyType | None = None,
+        allergen_name: str | None = None,
+        severity: AllergySeverity | None = None,
+        reaction: str | None = None,
+        onset_date: date | None = None,
+        notes: str | None = None,
+    ) -> None:
+        if allergy_type is not None:
+            self.allergy_type = allergy_type
+        if allergen_name is not None:
+            if not allergen_name.strip():
+                raise AllergenNameRequiredError()
+            self.allergen_name = allergen_name.strip()
+        if severity is not None:
+            self.severity = severity
+        if reaction is not None:
+            self.reaction = reaction
+        if onset_date is not None:
+            self.onset_date = onset_date
+        if notes is not None:
+            self.notes = notes
+
+        self.touch()
+        self.record_event(PatientAllergyUpdated(allergy_id=self.id, patient_id=self.patient_id))
+
+    def verify(self, *, verified_by: UUID, verified_date: date) -> None:
+        self.verified_by = verified_by
+        self.verified_date = verified_date
+        self.touch()
+        self.record_event(
+            PatientAllergyVerified(
+                allergy_id=self.id, patient_id=self.patient_id, verified_by=verified_by
+            )
+        )
+
+    def resolve(self) -> None:
+        self._set_status(AllergyStatus.RESOLVED)
+
+    def reactivate(self) -> None:
+        self._set_status(AllergyStatus.ACTIVE)
+
+    def _set_status(self, status: AllergyStatus) -> None:
+        if self.status is status:
+            return
+        self.status = status
+        self.touch()
+        self.record_event(
+            PatientAllergyStatusChanged(
+                allergy_id=self.id, patient_id=self.patient_id, status=status.value
+            )
+        )
+
+
+def _validate_verification_pairing(*, verified_by: UUID | None, verified_date: date | None) -> None:
+    if verified_date is not None and verified_by is None:
+        raise VerifiedDateRequiresVerifiedByError()
+
+
+@dataclass(kw_only=True, eq=False)
+class PatientMedication(AggregateRoot):
+    organization_id: UUID
+    patient_id: UUID
+    medication_name: str
+    dosage: str
+    route: RouteOfAdministration
+    start_date: date
+    prescribed_by: UUID | None = None
+    generic_name: str | None = None
+    brand_name: str | None = None
+    dosage_unit: str | None = None
+    frequency: str | None = None
+    indication: str | None = None
+    end_date: date | None = None
+    is_current: bool = True
+    adherence_status: AdherenceStatus = AdherenceStatus.TAKING
+    instructions: str | None = None
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.medication_name or not self.medication_name.strip():
+            raise MedicationNameRequiredError()
+        self.medication_name = self.medication_name.strip()
+
+        if not self.dosage or not self.dosage.strip():
+            raise DosageRequiredError()
+        self.dosage = self.dosage.strip()
+
+        _validate_medication_date_range(self.start_date, self.end_date)
+        _validate_completed_requires_end_date(
+            is_current=self.is_current,
+            adherence_status=self.adherence_status,
+            end_date=self.end_date,
+        )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        organization_id: UUID,
+        patient_id: UUID,
+        medication_name: str,
+        dosage: str,
+        route: RouteOfAdministration,
+        start_date: date,
+        prescribed_by: UUID | None = None,
+        generic_name: str | None = None,
+        brand_name: str | None = None,
+        dosage_unit: str | None = None,
+        frequency: str | None = None,
+        indication: str | None = None,
+        end_date: date | None = None,
+        is_current: bool = True,
+        adherence_status: AdherenceStatus = AdherenceStatus.TAKING,
+        instructions: str | None = None,
+        notes: str | None = None,
+    ) -> "PatientMedication":
+        medication = cls(
+            organization_id=organization_id,
+            patient_id=patient_id,
+            medication_name=medication_name,
+            dosage=dosage,
+            route=route,
+            start_date=start_date,
+            prescribed_by=prescribed_by,
+            generic_name=generic_name,
+            brand_name=brand_name,
+            dosage_unit=dosage_unit,
+            frequency=frequency,
+            indication=indication,
+            end_date=end_date,
+            is_current=is_current,
+            adherence_status=adherence_status,
+            instructions=instructions,
+            notes=notes,
+        )
+        medication.record_event(
+            PatientMedicationAdded(
+                medication_id=medication.id,
+                patient_id=patient_id,
+                medication_name=medication.medication_name,
+            )
+        )
+        return medication
+
+    def update_details(
+        self,
+        *,
+        medication_name: str | None = None,
+        generic_name: str | None = None,
+        brand_name: str | None = None,
+        dosage: str | None = None,
+        dosage_unit: str | None = None,
+        route: RouteOfAdministration | None = None,
+        frequency: str | None = None,
+        indication: str | None = None,
+        start_date: date | None = None,
+        instructions: str | None = None,
+        notes: str | None = None,
+    ) -> None:
+        if medication_name is not None:
+            if not medication_name.strip():
+                raise MedicationNameRequiredError()
+            self.medication_name = medication_name.strip()
+        if generic_name is not None:
+            self.generic_name = generic_name
+        if brand_name is not None:
+            self.brand_name = brand_name
+        if dosage is not None:
+            if not dosage.strip():
+                raise DosageRequiredError()
+            self.dosage = dosage.strip()
+        if dosage_unit is not None:
+            self.dosage_unit = dosage_unit
+        if route is not None:
+            self.route = route
+        if frequency is not None:
+            self.frequency = frequency
+        if indication is not None:
+            self.indication = indication
+        if start_date is not None:
+            _validate_medication_date_range(start_date, self.end_date)
+            self.start_date = start_date
+        if instructions is not None:
+            self.instructions = instructions
+        if notes is not None:
+            self.notes = notes
+
+        self.touch()
+        self.record_event(
+            PatientMedicationUpdated(medication_id=self.id, patient_id=self.patient_id)
+        )
+
+    def discontinue(
+        self, *, end_date: date, adherence_status: AdherenceStatus = AdherenceStatus.STOPPED
+    ) -> None:
+        _validate_medication_date_range(self.start_date, end_date)
+        self.is_current = False
+        self.adherence_status = adherence_status
+        self.end_date = end_date
+        self.touch()
+        self.record_event(
+            PatientMedicationDiscontinued(
+                medication_id=self.id, patient_id=self.patient_id, end_date=end_date
+            )
+        )
+
+    def resume(self) -> None:
+        if self.is_current and self.adherence_status is AdherenceStatus.TAKING:
+            return
+        self.is_current = True
+        self.adherence_status = AdherenceStatus.TAKING
+        self.end_date = None
+        self.touch()
+        self.record_event(
+            PatientMedicationResumed(medication_id=self.id, patient_id=self.patient_id)
+        )
+
+
+def _validate_medication_date_range(start_date: date, end_date: date | None) -> None:
+    if end_date is not None and end_date < start_date:
+        raise InvalidMedicationDateRangeError()
+
+
+def _validate_completed_requires_end_date(
+    *, is_current: bool, adherence_status: AdherenceStatus, end_date: date | None
+) -> None:
+    if not is_current and adherence_status is AdherenceStatus.COMPLETED and end_date is None:
+        raise EndDateRequiredForCompletedMedicationError()
