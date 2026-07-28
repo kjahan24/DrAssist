@@ -17,7 +17,6 @@ them. Neither `organizations` nor `users` is modified by this migration.
 import uuid
 from datetime import date, time
 from decimal import Decimal
-from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -31,7 +30,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import Enum as SAEnum
 
 from app.infrastructure.database.base import (
     AuditActorMixin,
@@ -39,6 +37,7 @@ from app.infrastructure.database.base import (
     SoftDeleteMixin,
     TimestampMixin,
     UUIDPrimaryKeyMixin,
+    pg_enum,
 )
 from app.modules.doctor.domain.enums import (
     DayOfWeek,
@@ -47,22 +46,12 @@ from app.modules.doctor.domain.enums import (
     LicenseVerificationStatus,
 )
 
-
-def _pg_enum(enum_cls: type[Enum], name: str) -> SAEnum:
-    return SAEnum(
-        enum_cls,
-        name=name,
-        create_type=False,
-        values_callable=lambda cls: [member.value for member in cls],
-    )
-
-
-_doctor_status_enum = _pg_enum(DoctorStatus, "doctor_status_enum")
-_gender_enum = _pg_enum(Gender, "gender_enum")
-_license_verification_status_enum = _pg_enum(
+_doctor_status_enum = pg_enum(DoctorStatus, "doctor_status_enum")
+_gender_enum = pg_enum(Gender, "gender_enum")
+_license_verification_status_enum = pg_enum(
     LicenseVerificationStatus, "license_verification_status_enum"
 )
-_day_of_week_enum = _pg_enum(DayOfWeek, "day_of_week_enum")
+_day_of_week_enum = pg_enum(DayOfWeek, "day_of_week_enum")
 
 
 class DoctorModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin):

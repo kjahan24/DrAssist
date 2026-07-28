@@ -7,9 +7,11 @@ deterministic, human-readable constraint names instead of driver defaults.
 
 import uuid
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy import DateTime, ForeignKey, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import Enum as SAEnum
 
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -34,6 +36,23 @@ class Base(DeclarativeBase):
     # model's plain `Mapped[datetime]` field is correct with no per-column
     # type argument needed.
     type_annotation_map = {datetime: DateTime(timezone=True)}
+
+
+def pg_enum(enum_cls: type[Enum], name: str) -> SAEnum:
+    """Bind a SQLAlchemy `Enum` column to an already-existing native
+    Postgres enum type (`create_type=False` — the Alembic migration owns
+    creating the type; the ORM only describes it), using `enum_cls`'s
+    string values rather than member names. Shared across every module
+    that declares native Postgres enum columns (originally introduced for
+    the Doctor module, promoted here once the Patient module needed the
+    same helper — see `docs/backend-architecture/01_folder_structure.md`).
+    """
+    return SAEnum(
+        enum_cls,
+        name=name,
+        create_type=False,
+        values_callable=lambda cls: [member.value for member in cls],
+    )
 
 
 class UUIDPrimaryKeyMixin:

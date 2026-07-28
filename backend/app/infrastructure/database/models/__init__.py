@@ -8,5 +8,6 @@
 from app.modules.authentication.infrastructure import models as authentication_models
 from app.modules.doctor.infrastructure import models as doctor_models
 from app.modules.organization.infrastructure import models as organization_models
+from app.modules.patient.infrastructure import models as patient_models
 
-__all__ = ["authentication_models", "doctor_models", "organization_models"]
+__all__ = ["authentication_models", "doctor_models", "organization_models", "patient_models"]
