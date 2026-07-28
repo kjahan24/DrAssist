@@ -16,6 +16,8 @@ from app.modules.patient.domain.enums import (
     AllergyStatus,
     AllergyType,
     BloodGroup,
+    ConditionSeverity,
+    ConditionStatus,
     ContactType,
     Gender,
     InsuranceStatus,
@@ -193,6 +195,35 @@ class AddPatientMedicationOutput:
     medication_name: str
     is_current: bool
     adherence_status: AdherenceStatus
+
+
+# --- AddPatientMedicalCondition ------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AddPatientMedicalConditionInput:
+    patient_id: UUID
+    condition_name: str
+    category: str
+    severity: ConditionSeverity
+    diagnosis_date: date
+    diagnosed_by: UUID | None = None
+    icd10_code: str | None = None
+    onset_date: date | None = None
+    status: ConditionStatus = ConditionStatus.ACTIVE
+    is_chronic: bool = False
+    is_infectious: bool = False
+    notes: str | None = None
+    resolved_date: date | None = None
+    created_by: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AddPatientMedicalConditionOutput:
+    condition_id: UUID
+    patient_id: UUID
+    condition_name: str
+    status: ConditionStatus
 
 
 # --- Cross-cutting read models (also re-exported via public/dto.py) --------

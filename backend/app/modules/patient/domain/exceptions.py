@@ -141,3 +141,41 @@ class PatientMedicationNotFoundError(DomainError):
     def __init__(self, medication_id: UUID) -> None:
         super().__init__(f"no patient medication found with id {medication_id}")
         self.medication_id = medication_id
+
+
+class InvalidICD10CodeError(DomainError):
+    def __init__(self, value: str) -> None:
+        super().__init__(f"{value!r} is not a valid ICD-10 code")
+
+
+class ConditionNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("condition_name must not be blank")
+
+
+class ConditionCategoryRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("category must not be blank")
+
+
+class DuplicateActiveConditionError(DomainError):
+    def __init__(self, patient_id: UUID, condition_name: str) -> None:
+        super().__init__(f"patient {patient_id} already has an active condition {condition_name!r}")
+        self.patient_id = patient_id
+        self.condition_name = condition_name
+
+
+class InvalidResolvedDateError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("resolved_date must be after diagnosis_date")
+
+
+class ResolvedDateRequiredForChronicConditionError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("resolved_date is required when is_chronic is true and status is resolved")
+
+
+class PatientMedicalConditionNotFoundError(DomainError):
+    def __init__(self, condition_id: UUID) -> None:
+        super().__init__(f"no patient medical condition found with id {condition_id}")
+        self.condition_id = condition_id

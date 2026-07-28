@@ -92,3 +92,16 @@ class AdherenceStatus(StrEnum):
     STOPPED = "stopped"
     COMPLETED = "completed"
     UNKNOWN = "unknown"
+
+
+class ConditionSeverity(StrEnum):
+    MILD = "mild"
+    MODERATE = "moderate"
+    SEVERE = "severe"
+
+
+class ConditionStatus(StrEnum):
+    ACTIVE = "active"
+    RESOLVED = "resolved"
+    CHRONIC = "chronic"
+    IN_REMISSION = "in_remission"

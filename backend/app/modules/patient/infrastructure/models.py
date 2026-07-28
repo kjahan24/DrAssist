@@ -1,15 +1,16 @@
 """SQLAlchemy ORM models for the Patient module.
 
-Six tables: `patients`, `patient_contacts`, `emergency_contacts`,
-`insurances`, `patient_allergies`, `patient_medications` (all five
-many-to-one with `patients`). See `app.modules.patient.container` for the
-module's scope note.
+Seven tables: `patients`, `patient_contacts`, `emergency_contacts`,
+`insurances`, `patient_allergies`, `patient_medications`,
+`patient_medical_conditions` (all six many-to-one with `patients`). See
+`app.modules.patient.container` for the module's scope note.
 
 `patients.organization_id` carries a real foreign key to
 `organizations.id` — like the Doctor module's tables, this is a brand-new
 column on a brand-new table, so there is no backward-compatibility
-reason to defer it. `patient_allergies.verified_by` and
-`patient_medications.prescribed_by` carry real foreign keys to
+reason to defer it. `patient_allergies.verified_by`,
+`patient_medications.prescribed_by`, and
+`patient_medical_conditions.diagnosed_by` carry real foreign keys to
 `doctors.id` (the Doctor module's table) — see those columns' own
 comments below for why they use `ON DELETE SET NULL` rather than
 `RESTRICT`. Neither `organizations`, `doctors`, nor any prior module's
@@ -37,6 +38,8 @@ from app.modules.patient.domain.enums import (
     AllergyStatus,
     AllergyType,
     BloodGroup,
+    ConditionSeverity,
+    ConditionStatus,
     ContactType,
     Gender,
     InsuranceStatus,
@@ -56,6 +59,8 @@ _allergy_severity_enum = pg_enum(AllergySeverity, "allergy_severity_enum")
 _allergy_status_enum = pg_enum(AllergyStatus, "allergy_status_enum")
 _route_of_administration_enum = pg_enum(RouteOfAdministration, "route_of_administration_enum")
 _adherence_status_enum = pg_enum(AdherenceStatus, "adherence_status_enum")
+_condition_severity_enum = pg_enum(ConditionSeverity, "condition_severity_enum")
+_condition_status_enum = pg_enum(ConditionStatus, "condition_status_enum")
 
 
 class PatientModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin):
@@ -285,5 +290,58 @@ class PatientMedicationModel(
         CheckConstraint(
             "is_current OR adherence_status != 'completed' OR end_date IS NOT NULL",
             name="end_date_required_for_completed",
+        ),
+    )
+
+
+class PatientMedicalConditionModel(
+    Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, AuditActorMixin
+):
+    __tablename__ = "patient_medical_conditions"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    patient_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    condition_name: Mapped[str] = mapped_column(CITEXT, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[ConditionSeverity] = mapped_column(_condition_severity_enum, nullable=False)
+    diagnosis_date: Mapped[date] = mapped_column(nullable=False)
+    # References `doctors.id`, not the `AuditActorMixin` `created_by`/
+    # `updated_by` columns above — see the identical reasoning on
+    # `PatientAllergyModel.verified_by`. `SET NULL` rather than `RESTRICT`
+    # for the same reason: a doctor's record can still be removed without
+    # being blocked by every condition they've ever diagnosed.
+    diagnosed_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("doctors.id", ondelete="SET NULL"), default=None
+    )
+    icd10_code: Mapped[str | None] = mapped_column(Text, default=None)
+    onset_date: Mapped[date | None] = mapped_column(default=None)
+    status: Mapped[ConditionStatus] = mapped_column(
+        _condition_status_enum, nullable=False, default=ConditionStatus.ACTIVE
+    )
+    is_chronic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_infectious: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
+    resolved_date: Mapped[date | None] = mapped_column(default=None)
+
+    __table_args__ = (
+        Index(
+            "uq_patient_medical_conditions_active_per_patient_and_name",
+            "patient_id",
+            "condition_name",
+            unique=True,
+            postgresql_where=text("status = 'active' AND deleted_at IS NULL"),
+        ),
+        Index("ix_patient_medical_conditions_patient_id", "patient_id"),
+        CheckConstraint(
+            "resolved_date IS NULL OR resolved_date > diagnosis_date",
+            name="resolved_after_diagnosis",
+        ),
+        CheckConstraint(
+            "NOT is_chronic OR status != 'resolved' OR resolved_date IS NOT NULL",
+            name="chronic_resolved_requires_date",
         ),
     )

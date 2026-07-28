@@ -10,13 +10,16 @@ from app.modules.patient.domain.entities import (
     Patient,
     PatientAllergy,
     PatientContact,
+    PatientMedicalCondition,
     PatientMedication,
 )
+from app.modules.patient.domain.value_objects import ICD10Code
 from app.modules.patient.infrastructure.models import (
     EmergencyContactModel,
     InsuranceModel,
     PatientAllergyModel,
     PatientContactModel,
+    PatientMedicalConditionModel,
     PatientMedicationModel,
     PatientModel,
 )
@@ -274,3 +277,50 @@ def apply_patient_medication_to_model(
     model.adherence_status = entity.adherence_status
     model.instructions = entity.instructions
     model.notes = entity.notes
+
+
+# --- PatientMedicalCondition -----------------------------------------------
+
+
+def patient_medical_condition_to_domain(
+    model: PatientMedicalConditionModel,
+) -> PatientMedicalCondition:
+    return PatientMedicalCondition(
+        id=model.id,
+        organization_id=model.organization_id,
+        patient_id=model.patient_id,
+        condition_name=model.condition_name,
+        category=model.category,
+        severity=model.severity,
+        diagnosis_date=model.diagnosis_date,
+        diagnosed_by=model.diagnosed_by,
+        icd10_code=ICD10Code(model.icd10_code) if model.icd10_code else None,
+        onset_date=model.onset_date,
+        status=model.status,
+        is_chronic=model.is_chronic,
+        is_infectious=model.is_infectious,
+        notes=model.notes,
+        resolved_date=model.resolved_date,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def apply_patient_medical_condition_to_model(
+    entity: PatientMedicalCondition, model: PatientMedicalConditionModel
+) -> None:
+    model.id = entity.id
+    model.organization_id = entity.organization_id
+    model.patient_id = entity.patient_id
+    model.condition_name = entity.condition_name
+    model.category = entity.category
+    model.severity = entity.severity
+    model.diagnosis_date = entity.diagnosis_date
+    model.diagnosed_by = entity.diagnosed_by
+    model.icd10_code = str(entity.icd10_code) if entity.icd10_code else None
+    model.onset_date = entity.onset_date
+    model.status = entity.status
+    model.is_chronic = entity.is_chronic
+    model.is_infectious = entity.is_infectious
+    model.notes = entity.notes
+    model.resolved_date = entity.resolved_date

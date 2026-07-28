@@ -132,3 +132,29 @@ class PatientMedicationDiscontinued(DomainEvent):
 class PatientMedicationResumed(DomainEvent):
     medication_id: UUID
     patient_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicalConditionRecorded(DomainEvent):
+    condition_id: UUID
+    patient_id: UUID
+    condition_name: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicalConditionUpdated(DomainEvent):
+    condition_id: UUID
+    patient_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicalConditionResolved(DomainEvent):
+    condition_id: UUID
+    patient_id: UUID
+    resolved_date: date
+
+
+@dataclass(frozen=True, kw_only=True)
+class PatientMedicalConditionReactivated(DomainEvent):
+    condition_id: UUID
+    patient_id: UUID

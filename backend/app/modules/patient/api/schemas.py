@@ -18,6 +18,8 @@ from app.modules.patient.domain.enums import (
     AllergyStatus,
     AllergyType,
     BloodGroup,
+    ConditionSeverity,
+    ConditionStatus,
     ContactType,
     Gender,
     InsuranceStatus,
@@ -217,3 +219,36 @@ class AddPatientMedicationRequest(ORJSONModel):
     adherence_status: AdherenceStatus = AdherenceStatus.TAKING
     instructions: str | None = Field(default=None, max_length=1000)
     notes: str | None = Field(default=None, max_length=1000)
+
+
+class PatientMedicalConditionResponse(ORJSONModel):
+    id: UUID
+    organization_id: UUID
+    patient_id: UUID
+    diagnosed_by: UUID | None = None
+    condition_name: str
+    icd10_code: str | None = None
+    category: str
+    severity: ConditionSeverity
+    diagnosis_date: date
+    onset_date: date | None = None
+    status: ConditionStatus
+    is_chronic: bool
+    is_infectious: bool
+    notes: str | None = None
+    resolved_date: date | None = None
+
+
+class AddPatientMedicalConditionRequest(ORJSONModel):
+    diagnosed_by: UUID | None = None
+    condition_name: str = Field(min_length=1, max_length=200)
+    icd10_code: str | None = Field(default=None, max_length=10)
+    category: str = Field(min_length=1, max_length=100)
+    severity: ConditionSeverity
+    diagnosis_date: date
+    onset_date: date | None = None
+    status: ConditionStatus = ConditionStatus.ACTIVE
+    is_chronic: bool = False
+    is_infectious: bool = False
+    notes: str | None = Field(default=None, max_length=1000)
+    resolved_date: date | None = None

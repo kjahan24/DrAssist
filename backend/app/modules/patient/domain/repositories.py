@@ -18,6 +18,7 @@ from app.modules.patient.domain.entities import (
     Patient,
     PatientAllergy,
     PatientContact,
+    PatientMedicalCondition,
     PatientMedication,
 )
 from app.modules.patient.domain.enums import ContactType
@@ -120,3 +121,22 @@ class PatientMedicationRepository(ABC):
 
     @abstractmethod
     async def add(self, medication: PatientMedication) -> None: ...
+
+
+class PatientMedicalConditionRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, condition_id: UUID) -> PatientMedicalCondition | None: ...
+
+    @abstractmethod
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientMedicalCondition]: ...
+
+    @abstractmethod
+    async def get_active_by_patient_and_condition_name(
+        self, *, patient_id: UUID, condition_name: str
+    ) -> PatientMedicalCondition | None:
+        """Used to enforce "duplicate active conditions are not allowed"
+        before adding a new one."""
+        ...
+
+    @abstractmethod
+    async def add(self, condition: PatientMedicalCondition) -> None: ...

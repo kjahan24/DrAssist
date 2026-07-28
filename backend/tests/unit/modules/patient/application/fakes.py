@@ -19,14 +19,16 @@ from app.modules.patient.domain.entities import (
     Patient,
     PatientAllergy,
     PatientContact,
+    PatientMedicalCondition,
     PatientMedication,
 )
-from app.modules.patient.domain.enums import AllergyStatus, ContactType
+from app.modules.patient.domain.enums import AllergyStatus, ConditionStatus, ContactType
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
     PatientAllergyRepository,
     PatientContactRepository,
+    PatientMedicalConditionRepository,
     PatientMedicationRepository,
     PatientRepository,
 )
@@ -159,6 +161,33 @@ class FakePatientMedicationRepository(PatientMedicationRepository):
 
     async def add(self, medication: PatientMedication) -> None:
         self._medications[medication.id] = medication
+
+
+class FakePatientMedicalConditionRepository(PatientMedicalConditionRepository):
+    def __init__(self) -> None:
+        self._conditions: dict[UUID, PatientMedicalCondition] = {}
+
+    async def get_by_id(self, condition_id: UUID) -> PatientMedicalCondition | None:
+        return self._conditions.get(condition_id)
+
+    async def list_by_patient(self, patient_id: UUID) -> list[PatientMedicalCondition]:
+        return [c for c in self._conditions.values() if c.patient_id == patient_id]
+
+    async def get_active_by_patient_and_condition_name(
+        self, *, patient_id: UUID, condition_name: str
+    ) -> PatientMedicalCondition | None:
+        normalized = condition_name.strip().lower()
+        for condition in self._conditions.values():
+            if (
+                condition.patient_id == patient_id
+                and condition.condition_name.lower() == normalized
+                and condition.status is ConditionStatus.ACTIVE
+            ):
+                return condition
+        return None
+
+    async def add(self, condition: PatientMedicalCondition) -> None:
+        self._conditions[condition.id] = condition
 
 
 class FakeUnitOfWork(UnitOfWork):

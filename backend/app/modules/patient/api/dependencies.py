@@ -30,6 +30,9 @@ from app.modules.patient.application.services.patient_query_service import Patie
 from app.modules.patient.application.use_cases.add_emergency_contact import AddEmergencyContact
 from app.modules.patient.application.use_cases.add_insurance import AddInsurance
 from app.modules.patient.application.use_cases.add_patient_contact import AddPatientContact
+from app.modules.patient.application.use_cases.add_patient_medical_condition import (
+    AddPatientMedicalCondition,
+)
 from app.modules.patient.application.use_cases.add_patient_medication import AddPatientMedication
 from app.modules.patient.application.use_cases.record_patient_allergy import RecordPatientAllergy
 from app.modules.patient.application.use_cases.register_patient import RegisterPatient
@@ -38,6 +41,7 @@ from app.modules.patient.domain.repositories import (
     InsuranceRepository,
     PatientAllergyRepository,
     PatientContactRepository,
+    PatientMedicalConditionRepository,
     PatientMedicationRepository,
     PatientRepository,
 )
@@ -46,6 +50,7 @@ from app.modules.patient.infrastructure.repositories import (
     SqlAlchemyInsuranceRepository,
     SqlAlchemyPatientAllergyRepository,
     SqlAlchemyPatientContactRepository,
+    SqlAlchemyPatientMedicalConditionRepository,
     SqlAlchemyPatientMedicationRepository,
     SqlAlchemyPatientRepository,
 )
@@ -77,6 +82,12 @@ def get_patient_medication_repository(session: DbSession) -> PatientMedicationRe
     return SqlAlchemyPatientMedicationRepository(session)
 
 
+def get_patient_medical_condition_repository(
+    session: DbSession,
+) -> PatientMedicalConditionRepository:
+    return SqlAlchemyPatientMedicalConditionRepository(session)
+
+
 def get_unit_of_work(session: DbSession) -> UnitOfWork:
     return SqlAlchemyUnitOfWork(session, event_bus=get_event_bus())
 
@@ -98,6 +109,9 @@ InsuranceRepo = Annotated[InsuranceRepository, Depends(get_insurance_repository)
 PatientAllergyRepo = Annotated[PatientAllergyRepository, Depends(get_patient_allergy_repository)]
 PatientMedicationRepo = Annotated[
     PatientMedicationRepository, Depends(get_patient_medication_repository)
+]
+PatientMedicalConditionRepo = Annotated[
+    PatientMedicalConditionRepository, Depends(get_patient_medical_condition_repository)
 ]
 Uow = Annotated[UnitOfWork, Depends(get_unit_of_work)]
 OrgQueryPort = Annotated[OrganizationQueryPort, Depends(get_organization_query_port)]
@@ -178,6 +192,20 @@ def get_add_patient_medication_use_case(
 ) -> AddPatientMedication:
     return AddPatientMedication(
         patient_medication_repository=patient_medication_repository,
+        patient_repository=patient_repository,
+        doctor_query_port=doctor_query_port,
+        unit_of_work=unit_of_work,
+    )
+
+
+def get_add_patient_medical_condition_use_case(
+    patient_medical_condition_repository: PatientMedicalConditionRepo,
+    patient_repository: PatientRepo,
+    doctor_query_port: DoctorPort,
+    unit_of_work: Uow,
+) -> AddPatientMedicalCondition:
+    return AddPatientMedicalCondition(
+        patient_medical_condition_repository=patient_medical_condition_repository,
         patient_repository=patient_repository,
         doctor_query_port=doctor_query_port,
         unit_of_work=unit_of_work,

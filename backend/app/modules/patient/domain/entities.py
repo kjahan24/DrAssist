@@ -1,18 +1,21 @@
 """Patient module aggregate roots: `Patient`, `PatientContact`,
-`EmergencyContact`, `Insurance`, `PatientAllergy`, `PatientMedication`.
+`EmergencyContact`, `Insurance`, `PatientAllergy`, `PatientMedication`,
+`PatientMedicalCondition`.
 
-`PatientContact`, `EmergencyContact`, `Insurance`, `PatientAllergy`, and
-`PatientMedication` are modeled as their own aggregates (many-to-one with
-`Patient`), the same reasoning
+`PatientContact`, `EmergencyContact`, `Insurance`, `PatientAllergy`,
+`PatientMedication`, and `PatientMedicalCondition` are modeled as their
+own aggregates (many-to-one with `Patient`), the same reasoning
 `DoctorLicense`/`DoctorSpecialization`/`DoctorSchedule` are independent of
 `Doctor` in `app.modules.doctor.domain.entities` — each aggregate
 reference to `Patient` is by ID only (never an object reference), see
 `docs/backend-architecture/03_module_architecture.md`.
-`PatientAllergy.verified_by`/`PatientMedication.prescribed_by` are
-likewise ID-only references to a `Doctor` in a *different* module —
-validated by the application layer via the Doctor module's public
-`DoctorQueryPort` (see `application/use_cases/record_patient_allergy.py`
-and `application/use_cases/add_patient_medication.py`), never by
+`PatientAllergy.verified_by`/`PatientMedication.prescribed_by`/
+`PatientMedicalCondition.diagnosed_by` are likewise ID-only references to
+a `Doctor` in a *different* module — validated by the application layer
+via the Doctor module's public `DoctorQueryPort` (see
+`application/use_cases/record_patient_allergy.py`,
+`application/use_cases/add_patient_medication.py`, and
+`application/use_cases/add_patient_medical_condition.py`), never by
 importing across `domain/` packages. All mutation goes through named
 methods that enforce the aggregate's invariants and record domain
 events; nothing here performs I/O beyond reading the wall clock for
@@ -30,6 +33,8 @@ from app.modules.patient.domain.enums import (
     AllergyStatus,
     AllergyType,
     BloodGroup,
+    ConditionSeverity,
+    ConditionStatus,
     ContactType,
     Gender,
     InsuranceStatus,
@@ -50,6 +55,10 @@ from app.modules.patient.domain.events import (
     PatientContactAdded,
     PatientContactUpdated,
     PatientDetailsUpdated,
+    PatientMedicalConditionReactivated,
+    PatientMedicalConditionRecorded,
+    PatientMedicalConditionResolved,
+    PatientMedicalConditionUpdated,
     PatientMedicationAdded,
     PatientMedicationDiscontinued,
     PatientMedicationResumed,
@@ -59,6 +68,8 @@ from app.modules.patient.domain.events import (
 )
 from app.modules.patient.domain.exceptions import (
     AllergenNameRequiredError,
+    ConditionCategoryRequiredError,
+    ConditionNameRequiredError,
     DosageRequiredError,
     EmergencyContactNameRequiredError,
     EmergencyContactRelationshipRequiredError,
@@ -69,11 +80,14 @@ from app.modules.patient.domain.exceptions import (
     InsuranceProviderNameRequiredError,
     InvalidInsuranceDateRangeError,
     InvalidMedicationDateRangeError,
+    InvalidResolvedDateError,
     LastNameRequiredError,
     MedicationNameRequiredError,
     PatientNumberRequiredError,
+    ResolvedDateRequiredForChronicConditionError,
     VerifiedDateRequiresVerifiedByError,
 )
+from app.modules.patient.domain.value_objects import ICD10Code
 from app.shared.domain.common_value_objects import EmailAddress, PhoneNumber
 from app.shared.domain.entity import AggregateRoot
 
@@ -865,3 +879,151 @@ def _validate_completed_requires_end_date(
 ) -> None:
     if not is_current and adherence_status is AdherenceStatus.COMPLETED and end_date is None:
         raise EndDateRequiredForCompletedMedicationError()
+
+
+@dataclass(kw_only=True, eq=False)
+class PatientMedicalCondition(AggregateRoot):
+    organization_id: UUID
+    patient_id: UUID
+    condition_name: str
+    category: str
+    severity: ConditionSeverity
+    diagnosis_date: date
+    diagnosed_by: UUID | None = None
+    icd10_code: ICD10Code | None = None
+    onset_date: date | None = None
+    status: ConditionStatus = ConditionStatus.ACTIVE
+    is_chronic: bool = False
+    is_infectious: bool = False
+    notes: str | None = None
+    resolved_date: date | None = None
+
+    def __post_init__(self) -> None:
+        if not self.condition_name or not self.condition_name.strip():
+            raise ConditionNameRequiredError()
+        self.condition_name = self.condition_name.strip()
+
+        if not self.category or not self.category.strip():
+            raise ConditionCategoryRequiredError()
+        self.category = self.category.strip()
+
+        _validate_resolved_date(self.diagnosis_date, self.resolved_date)
+        _validate_chronic_resolution(
+            is_chronic=self.is_chronic, status=self.status, resolved_date=self.resolved_date
+        )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        organization_id: UUID,
+        patient_id: UUID,
+        condition_name: str,
+        category: str,
+        severity: ConditionSeverity,
+        diagnosis_date: date,
+        diagnosed_by: UUID | None = None,
+        icd10_code: ICD10Code | None = None,
+        onset_date: date | None = None,
+        status: ConditionStatus = ConditionStatus.ACTIVE,
+        is_chronic: bool = False,
+        is_infectious: bool = False,
+        notes: str | None = None,
+        resolved_date: date | None = None,
+    ) -> "PatientMedicalCondition":
+        condition = cls(
+            organization_id=organization_id,
+            patient_id=patient_id,
+            condition_name=condition_name,
+            category=category,
+            severity=severity,
+            diagnosis_date=diagnosis_date,
+            diagnosed_by=diagnosed_by,
+            icd10_code=icd10_code,
+            onset_date=onset_date,
+            status=status,
+            is_chronic=is_chronic,
+            is_infectious=is_infectious,
+            notes=notes,
+            resolved_date=resolved_date,
+        )
+        condition.record_event(
+            PatientMedicalConditionRecorded(
+                condition_id=condition.id,
+                patient_id=patient_id,
+                condition_name=condition.condition_name,
+            )
+        )
+        return condition
+
+    def update_details(
+        self,
+        *,
+        condition_name: str | None = None,
+        category: str | None = None,
+        severity: ConditionSeverity | None = None,
+        diagnosis_date: date | None = None,
+        icd10_code: ICD10Code | None = None,
+        onset_date: date | None = None,
+        is_infectious: bool | None = None,
+        notes: str | None = None,
+    ) -> None:
+        if condition_name is not None:
+            if not condition_name.strip():
+                raise ConditionNameRequiredError()
+            self.condition_name = condition_name.strip()
+        if category is not None:
+            if not category.strip():
+                raise ConditionCategoryRequiredError()
+            self.category = category.strip()
+        if severity is not None:
+            self.severity = severity
+        if diagnosis_date is not None:
+            _validate_resolved_date(diagnosis_date, self.resolved_date)
+            self.diagnosis_date = diagnosis_date
+        if icd10_code is not None:
+            self.icd10_code = icd10_code
+        if onset_date is not None:
+            self.onset_date = onset_date
+        if is_infectious is not None:
+            self.is_infectious = is_infectious
+        if notes is not None:
+            self.notes = notes
+
+        self.touch()
+        self.record_event(
+            PatientMedicalConditionUpdated(condition_id=self.id, patient_id=self.patient_id)
+        )
+
+    def resolve(self, *, resolved_date: date) -> None:
+        _validate_resolved_date(self.diagnosis_date, resolved_date)
+        self.status = ConditionStatus.RESOLVED
+        self.resolved_date = resolved_date
+        self.touch()
+        self.record_event(
+            PatientMedicalConditionResolved(
+                condition_id=self.id, patient_id=self.patient_id, resolved_date=resolved_date
+            )
+        )
+
+    def reactivate(self) -> None:
+        if self.status is ConditionStatus.ACTIVE and self.resolved_date is None:
+            return
+        self.status = ConditionStatus.ACTIVE
+        self.resolved_date = None
+        self.touch()
+        self.record_event(
+            PatientMedicalConditionReactivated(condition_id=self.id, patient_id=self.patient_id)
+        )
+
+
+def _validate_resolved_date(diagnosis_date: date, resolved_date: date | None) -> None:
+    if resolved_date is not None and resolved_date <= diagnosis_date:
+        raise InvalidResolvedDateError()
+
+
+def _validate_chronic_resolution(
+    *, is_chronic: bool, status: ConditionStatus, resolved_date: date | None
+) -> None:
+    if is_chronic and status is ConditionStatus.RESOLVED and resolved_date is None:
+        raise ResolvedDateRequiredForChronicConditionError()
