@@ -14,6 +14,7 @@ from app.modules.doctor.api.router import router as doctor_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
 from app.modules.visit.api.router import router as visit_router
+from app.modules.vital_signs.api.router import router as vital_signs_router
 
 api_router = APIRouter()
 api_router.include_router(authentication_router, prefix="/auth", tags=["authentication"])
@@ -21,3 +22,4 @@ api_router.include_router(organization_router, prefix="/organizations", tags=["o
 api_router.include_router(doctor_router, prefix="/doctors", tags=["doctor"])
 api_router.include_router(patient_router, prefix="/patients", tags=["patient"])
 api_router.include_router(visit_router, prefix="/visits", tags=["visit"])
+api_router.include_router(vital_signs_router, prefix="/vital-signs", tags=["vital-signs"])
