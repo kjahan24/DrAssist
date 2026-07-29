@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from app.modules.attachments.api.router import router as attachments_router
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
+from app.modules.clinical_notes.api.router import router as clinical_notes_router
 from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.organization.api.router import router as organization_router
@@ -33,3 +34,4 @@ api_router.include_router(
 api_router.include_router(diagnosis_router, prefix="/diagnoses", tags=["diagnosis"])
 api_router.include_router(procedures_router, prefix="/procedures", tags=["procedures"])
 api_router.include_router(attachments_router, prefix="/attachments", tags=["attachments"])
+api_router.include_router(clinical_notes_router, prefix="/clinical-notes", tags=["clinical-notes"])
