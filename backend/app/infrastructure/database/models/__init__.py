@@ -6,6 +6,7 @@
 # `docs/backend-architecture/01_folder_structure.md` (Evolution note).
 
 from app.modules.authentication.infrastructure import models as authentication_models
+from app.modules.chief_complaints.infrastructure import models as chief_complaints_models
 from app.modules.doctor.infrastructure import models as doctor_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
@@ -14,6 +15,7 @@ from app.modules.vital_signs.infrastructure import models as vital_signs_models
 
 __all__ = [
     "authentication_models",
+    "chief_complaints_models",
     "doctor_models",
     "organization_models",
     "patient_models",
