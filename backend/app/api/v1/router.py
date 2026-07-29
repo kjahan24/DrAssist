@@ -15,6 +15,7 @@ from app.modules.chief_complaints.api.router import router as chief_complaints_r
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
 from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.doctor.api.router import router as doctor_router
+from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
@@ -39,3 +40,4 @@ api_router.include_router(attachments_router, prefix="/attachments", tags=["atta
 api_router.include_router(clinical_notes_router, prefix="/clinical-notes", tags=["clinical-notes"])
 api_router.include_router(soap_notes_router, prefix="/soap-notes", tags=["soap-notes"])
 api_router.include_router(prescriptions_router, prefix="/prescriptions", tags=["prescriptions"])
+api_router.include_router(lab_orders_router, prefix="/lab-orders", tags=["lab-orders"])

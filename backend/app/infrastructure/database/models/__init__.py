@@ -11,6 +11,7 @@ from app.modules.chief_complaints.infrastructure import models as chief_complain
 from app.modules.clinical_notes.infrastructure import models as clinical_notes_models
 from app.modules.diagnosis.infrastructure import models as diagnosis_models
 from app.modules.doctor.infrastructure import models as doctor_models
+from app.modules.lab_orders.infrastructure import models as lab_orders_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
 from app.modules.prescriptions.infrastructure import models as prescriptions_models
@@ -26,6 +27,7 @@ __all__ = [
     "clinical_notes_models",
     "diagnosis_models",
     "doctor_models",
+    "lab_orders_models",
     "organization_models",
     "patient_models",
     "prescriptions_models",
