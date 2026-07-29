@@ -11,6 +11,7 @@ from app.modules.diagnosis.infrastructure import models as diagnosis_models
 from app.modules.doctor.infrastructure import models as doctor_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
+from app.modules.procedures.infrastructure import models as procedures_models
 from app.modules.visit.infrastructure import models as visit_models
 from app.modules.vital_signs.infrastructure import models as vital_signs_models
 
@@ -21,6 +22,7 @@ __all__ = [
     "doctor_models",
     "organization_models",
     "patient_models",
+    "procedures_models",
     "visit_models",
     "vital_signs_models",
 ]
