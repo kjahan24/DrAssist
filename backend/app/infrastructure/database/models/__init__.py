@@ -12,6 +12,7 @@ from app.modules.clinical_notes.infrastructure import models as clinical_notes_m
 from app.modules.diagnosis.infrastructure import models as diagnosis_models
 from app.modules.doctor.infrastructure import models as doctor_models
 from app.modules.lab_orders.infrastructure import models as lab_orders_models
+from app.modules.lab_results.infrastructure import models as lab_results_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
 from app.modules.prescriptions.infrastructure import models as prescriptions_models
@@ -28,6 +29,7 @@ __all__ = [
     "diagnosis_models",
     "doctor_models",
     "lab_orders_models",
+    "lab_results_models",
     "organization_models",
     "patient_models",
     "prescriptions_models",
