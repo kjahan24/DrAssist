@@ -5,6 +5,16 @@ Distinct from both domain entities (never leave the module) and API
 schemas (`api/schemas.py`, not yet wired to any endpoint). Use-case
 input/output DTOs are plain, immutable dataclasses; `ClinicalNoteSummaryDTO`
 is also re-exported from `public/dto.py` for other modules to depend on.
+
+`ClinicalNoteSummaryDTO.doctor_id` was added when building the SOAP Notes
+module: that module's business rule "Doctor ... must match the linked
+Clinical Note" cannot be satisfied through this port at all without it —
+there was no other field to derive/validate the authoring doctor from.
+This is a purely additive field (the sole construction site, in
+`application/services/clinical_note_query_service.py`, already uses
+keyword arguments) and brings this DTO in line with
+`app.modules.visit.public.dto.VisitSummaryDTO`, which already exposes
+both `patient_id` and `doctor_id` side by side.
 """
 
 from dataclasses import dataclass
@@ -54,6 +64,7 @@ class ClinicalNoteSummaryDTO:
     organization_id: UUID
     patient_id: UUID
     visit_id: UUID
+    doctor_id: UUID
     note_number: str
     note_type: ClinicalNoteType
     status: ClinicalNoteStatus

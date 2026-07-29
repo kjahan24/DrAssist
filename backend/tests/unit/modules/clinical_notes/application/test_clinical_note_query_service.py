@@ -64,11 +64,49 @@ class TestGetClinicalNoteSummary:
         assert summary.organization_id == note.organization_id
         assert summary.patient_id == note.patient_id
         assert summary.visit_id == note.visit_id
+        assert summary.doctor_id == note.doctor_id
 
     async def test_returns_none_for_an_unknown_note(
         self, service: ClinicalNoteQueryService
     ) -> None:
         assert await service.get_clinical_note_summary(uuid4()) is None
+
+
+class TestIsEditable:
+    async def test_true_while_draft(
+        self, service: ClinicalNoteQueryService, clinical_note_repo: FakeClinicalNoteRepository
+    ) -> None:
+        note = _make_note()
+        await clinical_note_repo.add(note)
+        assert await service.is_editable(note.id) is True
+
+    async def test_true_while_in_review(
+        self, service: ClinicalNoteQueryService, clinical_note_repo: FakeClinicalNoteRepository
+    ) -> None:
+        note = _make_note()
+        note.submit_for_review()
+        await clinical_note_repo.add(note)
+        assert await service.is_editable(note.id) is True
+
+    async def test_false_once_signed(
+        self, service: ClinicalNoteQueryService, clinical_note_repo: FakeClinicalNoteRepository
+    ) -> None:
+        note = _make_note()
+        note.sign(signed_at=datetime(2026, 1, 1, 10, 0), signed_by=uuid4())
+        await clinical_note_repo.add(note)
+        assert await service.is_editable(note.id) is False
+
+    async def test_false_once_locked(
+        self, service: ClinicalNoteQueryService, clinical_note_repo: FakeClinicalNoteRepository
+    ) -> None:
+        note = _make_note()
+        note.sign(signed_at=datetime(2026, 1, 1, 10, 0), signed_by=uuid4())
+        note.lock(locked_at=datetime(2026, 1, 1, 11, 0))
+        await clinical_note_repo.add(note)
+        assert await service.is_editable(note.id) is False
+
+    async def test_false_for_an_unknown_note(self, service: ClinicalNoteQueryService) -> None:
+        assert await service.is_editable(uuid4()) is False
 
 
 class TestListClinicalNotesForVisit:

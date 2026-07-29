@@ -18,6 +18,7 @@ from app.modules.doctor.api.router import router as doctor_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
 from app.modules.procedures.api.router import router as procedures_router
+from app.modules.soap_notes.api.router import router as soap_notes_router
 from app.modules.visit.api.router import router as visit_router
 from app.modules.vital_signs.api.router import router as vital_signs_router
 
@@ -35,3 +36,4 @@ api_router.include_router(diagnosis_router, prefix="/diagnoses", tags=["diagnosi
 api_router.include_router(procedures_router, prefix="/procedures", tags=["procedures"])
 api_router.include_router(attachments_router, prefix="/attachments", tags=["attachments"])
 api_router.include_router(clinical_notes_router, prefix="/clinical-notes", tags=["clinical-notes"])
+api_router.include_router(soap_notes_router, prefix="/soap-notes", tags=["soap-notes"])

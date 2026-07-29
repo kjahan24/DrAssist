@@ -20,6 +20,9 @@ class ClinicalNoteFacade(ClinicalNoteQueryPort):
     async def clinical_note_exists(self, clinical_note_id: UUID) -> bool:
         return await self._query_service.clinical_note_exists(clinical_note_id)
 
+    async def is_editable(self, clinical_note_id: UUID) -> bool:
+        return await self._query_service.is_editable(clinical_note_id)
+
     async def get_clinical_note_summary(
         self, clinical_note_id: UUID
     ) -> ClinicalNoteSummaryDTO | None:
