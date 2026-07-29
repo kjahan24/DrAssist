@@ -11,6 +11,7 @@ from fastapi import APIRouter
 
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
+from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
@@ -27,3 +28,4 @@ api_router.include_router(vital_signs_router, prefix="/vital-signs", tags=["vita
 api_router.include_router(
     chief_complaints_router, prefix="/chief-complaints", tags=["chief-complaints"]
 )
+api_router.include_router(diagnosis_router, prefix="/diagnoses", tags=["diagnosis"])
