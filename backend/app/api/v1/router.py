@@ -13,6 +13,7 @@ from app.modules.attachments.api.router import router as attachments_router
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
+from app.modules.clinical_reasoning.api.router import router as clinical_reasoning_router
 from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
@@ -43,3 +44,6 @@ api_router.include_router(soap_notes_router, prefix="/soap-notes", tags=["soap-n
 api_router.include_router(prescriptions_router, prefix="/prescriptions", tags=["prescriptions"])
 api_router.include_router(lab_orders_router, prefix="/lab-orders", tags=["lab-orders"])
 api_router.include_router(lab_results_router, prefix="/lab-results", tags=["lab-results"])
+api_router.include_router(
+    clinical_reasoning_router, prefix="/clinical-reasoning", tags=["clinical-reasoning"]
+)
