@@ -66,6 +66,19 @@ class TimestampMixin:
     )
 
 
+class CreatedAtMixin:
+    """For append-only, immutable rows that only ever record when they
+    were created — no `updated_at` (nothing about the row ever changes),
+    no `deleted_at` (it can never be deleted, not even soft-deleted), and
+    deliberately not bundled into `TimestampMixin`. First used by the
+    Audit Log module's `AuditLogModel` — see
+    `docs/database/06_audit_and_activity.md`'s own `reject_mutation()`
+    trigger, which enforces this at the database level too.
+    """
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+
+
 class SoftDeleteMixin:
     """`deleted_at IS NULL` means active — see `docs/database/00_overview.md`.
 

@@ -7,6 +7,7 @@
 
 from app.modules.appointment.infrastructure import models as appointment_models
 from app.modules.attachments.infrastructure import models as attachments_models
+from app.modules.audit_log.infrastructure import models as audit_log_models
 from app.modules.authentication.infrastructure import models as authentication_models
 from app.modules.chief_complaints.infrastructure import models as chief_complaints_models
 from app.modules.clinical_notes.infrastructure import models as clinical_notes_models
@@ -34,6 +35,7 @@ from app.modules.vital_signs.infrastructure import models as vital_signs_models
 __all__ = [
     "appointment_models",
     "attachments_models",
+    "audit_log_models",
     "authentication_models",
     "chief_complaints_models",
     "clinical_notes_models",
