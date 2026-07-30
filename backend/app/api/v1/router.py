@@ -19,6 +19,7 @@ from app.modules.differential_diagnosis.api.router import (
     router as differential_diagnosis_router,
 )
 from app.modules.doctor.api.router import router as doctor_router
+from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
@@ -57,3 +58,4 @@ api_router.include_router(
     tags=["differential-diagnosis"],
 )
 api_router.include_router(icd10_coding_router, prefix="/icd10-codes", tags=["icd10-coding"])
+api_router.include_router(doctor_review_router, prefix="/doctor-reviews", tags=["doctor-review"])

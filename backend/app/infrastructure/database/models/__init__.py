@@ -15,6 +15,7 @@ from app.modules.differential_diagnosis.infrastructure import (
     models as differential_diagnosis_models,
 )
 from app.modules.doctor.infrastructure import models as doctor_models
+from app.modules.doctor_review.infrastructure import models as doctor_review_models
 from app.modules.icd10_coding.infrastructure import models as icd10_coding_models
 from app.modules.lab_orders.infrastructure import models as lab_orders_models
 from app.modules.lab_results.infrastructure import models as lab_results_models
@@ -35,6 +36,7 @@ __all__ = [
     "diagnosis_models",
     "differential_diagnosis_models",
     "doctor_models",
+    "doctor_review_models",
     "icd10_coding_models",
     "lab_orders_models",
     "lab_results_models",
