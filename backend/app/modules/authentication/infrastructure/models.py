@@ -22,6 +22,19 @@ included here — this task scopes the module to exactly the five entities
 requested (User, Role, Permission, UserSession, RefreshToken); those three
 tables belong to a follow-up task that adds the login/register flows
 which actually need them.
+
+**RBAC extension** — a later task ("Implement the RBAC (Roles &
+Permissions) module") found `Role`/`Permission`/`RolePermission`/
+`UserRole` already fully present here and, rather than forking a second,
+disconnected permission system under a new `app.modules.rbac` package,
+extended these in place (see `alembic/versions/`'s own migration for the
+`ALTER`s this required, and `app.modules.authentication.container`'s
+scope note for the full list of what that task added): `RoleModel`
+gained `is_active`; `PermissionModel`'s `module` column was renamed to
+`resource` (an exact rename, not a new parallel column — `module` and
+`resource` are the same concept, so keeping both would only add
+confusing, redundant schema) and gained `name`/`action`; `description`
+became nullable, matching that task's own field spec.
 """
 
 import uuid
@@ -107,6 +120,7 @@ class RoleModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Audi
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, default=None)
     is_system_role: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     __table_args__ = (
         Index(
@@ -130,14 +144,16 @@ class PermissionModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin
     __tablename__ = "permissions"
 
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    module: Mapped[str] = mapped_column(Text, nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    resource: Mapped[str] = mapped_column(Text, nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
 
     __table_args__ = (
         Index(
             "uq_permissions_code", "code", unique=True, postgresql_where=text("deleted_at IS NULL")
         ),
-        Index("ix_permissions_module", "module"),
+        Index("ix_permissions_resource_action", "resource", "action"),
     )
 
 

@@ -65,7 +65,75 @@ class AssignRoleToUserOutput:
     role_id: UUID
 
 
+# --- DeleteRole / ActivateRole / DeactivateRole -------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteRoleInput:
+    role_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteRoleOutput:
+    role_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ActivateRoleInput:
+    role_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class DeactivateRoleInput:
+    role_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class RoleStatusOutput:
+    role_id: UUID
+    is_active: bool
+
+
+# --- CreatePermission -----------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CreatePermissionInput:
+    code: str
+    name: str
+    description: str | None = None
+    created_by: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CreatePermissionOutput:
+    permission_id: UUID
+    code: str
+    resource: str
+    action: str
+
+
 # --- Cross-cutting read models (also re-exported via public/dto.py) ----
+
+
+@dataclass(frozen=True, slots=True)
+class RoleSummaryDTO:
+    role_id: UUID
+    organization_id: UUID | None
+    name: str
+    description: str | None
+    is_system_role: bool
+    is_active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PermissionSummaryDTO:
+    permission_id: UUID
+    code: str
+    name: str
+    description: str | None
+    resource: str
+    action: str
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,12 +15,15 @@ from uuid import UUID
 from app.modules.authentication.domain.enums import UserStatus
 from app.modules.authentication.domain.events import (
     PasswordChanged,
+    PermissionCreated,
     PermissionGrantedToRole,
     PermissionRevokedFromRole,
     RefreshTokenIssued,
     RefreshTokenRevoked,
     RefreshTokenRotated,
+    RoleActivated,
     RoleCreated,
+    RoleDeactivated,
     SessionCreated,
     SessionRevoked,
     UserActivated,
@@ -31,8 +34,11 @@ from app.modules.authentication.domain.events import (
     UserRegistered,
 )
 from app.modules.authentication.domain.exceptions import (
+    InvalidRoleOrganizationScopeError,
+    PermissionNameRequiredError,
     RefreshTokenAlreadyUsedError,
     RefreshTokenExpiredError,
+    RoleNameRequiredError,
     SystemRoleImmutableError,
 )
 from app.modules.authentication.domain.value_objects import HashedPassword, PermissionCode
@@ -152,11 +158,38 @@ class User(AggregateRoot):
 
 @dataclass(kw_only=True, eq=False)
 class Role(AggregateRoot):
+    """`organization_id`/`is_system_role` are cross-validated in
+    `__post_init__`, not left as two independently-set fields that could
+    drift into an invalid combination: "Global system roles must have
+    organization_id = NULL" and "Organization roles must belong to
+    exactly one organization" are two halves of one invariant, enforced
+    unconditionally (applies to every construction path, including
+    `role_to_domain` reconstructing a `Role` from a database row, not
+    just `create()` — the same universal-`__post_init__` convention every
+    other module's aggregates use for their own construction invariants).
+
+    `is_active` defaults `True` — a role is usable the moment it's
+    created; deactivation is a separate, explicit step via `deactivate()`.
+    """
+
     organization_id: UUID | None
     name: str
     description: str | None = None
     is_system_role: bool = False
+    is_active: bool = True
     permission_ids: set[UUID] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.name.strip():
+            raise RoleNameRequiredError()
+        self.name = self.name.strip()
+
+        if self.is_system_role and self.organization_id is not None:
+            raise InvalidRoleOrganizationScopeError(
+                is_system_role=True, organization_id=self.organization_id
+            )
+        if not self.is_system_role and self.organization_id is None:
+            raise InvalidRoleOrganizationScopeError(is_system_role=False, organization_id=None)
 
     @classmethod
     def create(
@@ -197,16 +230,68 @@ class Role(AggregateRoot):
         self.touch()
         self.record_event(PermissionRevokedFromRole(role_id=self.id, permission_id=permission_id))
 
+    def activate(self) -> None:
+        """Blocked for system roles — same "cannot be modified" guard as
+        `grant_permission`/`revoke_permission`; a system role is always
+        active and is never expected to need reactivating."""
+        if self.is_system_role:
+            raise SystemRoleImmutableError(self.id)
+        if self.is_active:
+            return
+        self.is_active = True
+        self.touch()
+        self.record_event(RoleActivated(role_id=self.id))
+
+    def deactivate(self) -> None:
+        """Blocked for system roles — deactivating one would silently
+        strip permissions from every user who holds it, which "system
+        roles cannot be modified" is precisely meant to prevent."""
+        if self.is_system_role:
+            raise SystemRoleImmutableError(self.id)
+        if not self.is_active:
+            return
+        self.is_active = False
+        self.touch()
+        self.record_event(RoleDeactivated(role_id=self.id))
+
 
 @dataclass(kw_only=True, eq=False)
 class Permission(AggregateRoot):
+    """`resource`/`action` are *derived* from `code` at construction time
+    (`code`'s own `resource.action` format — see
+    `domain.value_objects.PermissionCode` — already carries this
+    information), not independently caller-supplied: storing them as
+    plain columns (rather than parsing `code` on every read) is what lets
+    a future admin UI/FHIR mapping filter or index on them directly, but
+    deriving rather than accepting them as separate constructor arguments
+    means they can never drift out of sync with `code` — `code` remains
+    the single source of truth. `description` is nullable ("no format was
+    specified" — the same reasoning already applied to `reason_for_visit`/
+    `notes`-shaped free-text fields elsewhere in this codebase); `name` is
+    required, matching `Role.name`'s own required-non-blank treatment.
+    """
+
     code: PermissionCode
-    module: str
-    description: str
+    name: str
+    resource: str
+    action: str
+    description: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.name.strip():
+            raise PermissionNameRequiredError()
+        self.name = self.name.strip()
 
     @classmethod
-    def create(cls, *, code: PermissionCode, module: str, description: str) -> "Permission":
-        return cls(code=code, module=module, description=description)
+    def create(
+        cls, *, code: PermissionCode, name: str, description: str | None = None
+    ) -> "Permission":
+        resource, action = code.value.split(".", 1)
+        permission = cls(
+            code=code, name=name, resource=resource, action=action, description=description
+        )
+        permission.record_event(PermissionCreated(permission_id=permission.id, code=str(code)))
+        return permission
 
 
 @dataclass(kw_only=True, eq=False)

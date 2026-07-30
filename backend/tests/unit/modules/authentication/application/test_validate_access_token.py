@@ -143,7 +143,7 @@ class TestValidateAccessToken:
             granted_at=datetime.now(UTC),
         )
         permission = Permission.create(
-            code=PermissionCode("patients.read"), module="patients", description="Read"
+            code=PermissionCode("patients.read"), name="Read patients", description="Read"
         )
         await permission_repository.add(permission)
         permission_repository.seed_role_permission(role.id, permission.id)

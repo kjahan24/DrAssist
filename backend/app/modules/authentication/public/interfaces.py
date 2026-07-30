@@ -13,7 +13,12 @@ surface.
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from app.modules.authentication.public.dto import AuthenticatedPrincipalDTO, UserSummaryDTO
+from app.modules.authentication.public.dto import (
+    AuthenticatedPrincipalDTO,
+    PermissionSummaryDTO,
+    RoleSummaryDTO,
+    UserSummaryDTO,
+)
 
 
 class UserQueryPort(ABC):
@@ -30,6 +35,45 @@ class PermissionCheckPort(ABC):
 
     @abstractmethod
     async def get_effective_permission_codes(self, user_id: UUID) -> frozenset[str]: ...
+
+
+class RoleQueryPort(ABC):
+    """Added by the task that added `Role.is_active` — the contract a
+    future Hospital Admin Portal / Super Admin Portal, or any other
+    module, depends on to read the role catalog without importing this
+    module's internals."""
+
+    @abstractmethod
+    async def role_exists(self, role_id: UUID) -> bool: ...
+
+    @abstractmethod
+    async def get_role_summary(self, role_id: UUID) -> RoleSummaryDTO | None: ...
+
+    @abstractmethod
+    async def list_roles_for_organization(self, organization_id: UUID) -> list[RoleSummaryDTO]: ...
+
+    @abstractmethod
+    async def list_system_roles(self) -> list[RoleSummaryDTO]: ...
+
+
+class PermissionQueryPort(ABC):
+    """The permission *catalog*, as opposed to `PermissionCheckPort`
+    (a specific user's effective permissions)."""
+
+    @abstractmethod
+    async def permission_exists(self, permission_id: UUID) -> bool: ...
+
+    @abstractmethod
+    async def get_permission_summary(self, permission_id: UUID) -> PermissionSummaryDTO | None: ...
+
+    @abstractmethod
+    async def get_permission_by_code(self, code: str) -> PermissionSummaryDTO | None: ...
+
+    @abstractmethod
+    async def list_all_permissions(self) -> list[PermissionSummaryDTO]: ...
+
+    @abstractmethod
+    async def list_permissions_for_role(self, role_id: UUID) -> list[PermissionSummaryDTO]: ...
 
 
 class AccessTokenValidationPort(ABC):

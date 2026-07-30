@@ -2,7 +2,7 @@
 across every role a user holds."""
 
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -40,8 +40,8 @@ async def _seed_role_with_permission(
     role_repository: FakeRoleRepository,
     permission_repository: FakePermissionRepository,
     *,
-    organization_id,
-    user_id,
+    organization_id: UUID,
+    user_id: UUID,
     role_name: str,
     permission_code: str,
 ) -> None:
@@ -55,7 +55,7 @@ async def _seed_role_with_permission(
         granted_at=datetime.now(UTC),
     )
     permission = Permission.create(
-        code=PermissionCode(permission_code), module=permission_code.split(".")[0], description=""
+        code=PermissionCode(permission_code), name=permission_code, description=""
     )
     await permission_repository.add(permission)
     permission_repository.seed_role_permission(role.id, permission.id)

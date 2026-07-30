@@ -44,7 +44,10 @@ class HashedPassword(ValueObject):
 
 @dataclass(frozen=True, slots=True)
 class PermissionCode(ValueObject):
-    """A permission string in `module.action` form, e.g. `"patients.read"`."""
+    """A permission string in `resource.action` form, e.g. `"patients.read"`
+    — `Permission.create()` derives its `resource`/`action` fields by
+    splitting this value, so `resource`/`action` can never drift out of
+    sync with the code that names them."""
 
     value: str
 

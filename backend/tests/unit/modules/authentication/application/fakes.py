@@ -74,8 +74,19 @@ class FakeRoleRepository(RoleRepository):
         role_ids = {role_id for (uid, role_id) in self._user_roles if uid == user_id}
         return [self._roles[rid] for rid in role_ids if rid in self._roles]
 
+    async def list_by_organization(self, organization_id: UUID) -> list[Role]:
+        matches = [r for r in self._roles.values() if r.organization_id == organization_id]
+        return sorted(matches, key=lambda r: r.name)
+
+    async def list_system_roles(self) -> list[Role]:
+        matches = [r for r in self._roles.values() if r.organization_id is None]
+        return sorted(matches, key=lambda r: r.name)
+
     async def add(self, role: Role) -> None:
         self._roles[role.id] = role
+
+    async def delete(self, role_id: UUID) -> None:
+        self._roles.pop(role_id, None)
 
     async def assign_to_user(
         self,

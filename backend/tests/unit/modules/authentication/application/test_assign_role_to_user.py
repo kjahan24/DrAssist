@@ -8,7 +8,12 @@ from app.modules.authentication.application.dto import AssignRoleToUserInput
 from app.modules.authentication.application.use_cases.assign_role_to_user import AssignRoleToUser
 from app.modules.authentication.domain.entities import Role, User
 from app.modules.authentication.domain.events import UserRoleAssigned
-from app.modules.authentication.domain.exceptions import RoleNotFoundError, UserNotFoundError
+from app.modules.authentication.domain.exceptions import (
+    InactiveRoleError,
+    RoleNotFoundError,
+    RoleOrganizationMismatchError,
+    UserNotFoundError,
+)
 from app.modules.authentication.domain.value_objects import HashedPassword
 from app.shared.domain.common_value_objects import EmailAddress
 from tests.unit.modules.authentication.application.fakes import (
@@ -155,4 +160,76 @@ class TestAssignRoleToUser:
         with pytest.raises(RoleNotFoundError):
             await use_case.execute(
                 AssignRoleToUserInput(organization_id=org_id, user_id=user.id, role_id=uuid4())
+            )
+
+    async def test_role_from_a_different_organization_raises(
+        self,
+        use_case: AssignRoleToUser,
+        user_repository: FakeUserRepository,
+        role_repository: FakeRoleRepository,
+    ) -> None:
+        org_id = uuid4()
+        user = User.register(
+            organization_id=org_id,
+            email=EmailAddress("nurse4@example.com"),
+            password_hash=HashedPassword(VALID_HASH),
+            first_name="Nora",
+            last_name="Nurse",
+        )
+        await user_repository.add(user)
+        role = Role.create(organization_id=uuid4(), name="Nurse")
+        await role_repository.add(role)
+
+        with pytest.raises(RoleOrganizationMismatchError):
+            await use_case.execute(
+                AssignRoleToUserInput(organization_id=org_id, user_id=user.id, role_id=role.id)
+            )
+
+    async def test_system_role_is_assignable_to_any_organization(
+        self,
+        use_case: AssignRoleToUser,
+        user_repository: FakeUserRepository,
+        role_repository: FakeRoleRepository,
+    ) -> None:
+        org_id = uuid4()
+        user = User.register(
+            organization_id=org_id,
+            email=EmailAddress("doctor@example.com"),
+            password_hash=HashedPassword(VALID_HASH),
+            first_name="Dana",
+            last_name="Doctor",
+        )
+        await user_repository.add(user)
+        role = Role.create(organization_id=None, name="Doctor", is_system_role=True)
+        await role_repository.add(role)
+
+        await use_case.execute(
+            AssignRoleToUserInput(organization_id=org_id, user_id=user.id, role_id=role.id)
+        )
+
+        assigned_roles = await role_repository.list_for_user(user.id)
+        assert [r.id for r in assigned_roles] == [role.id]
+
+    async def test_inactive_role_raises(
+        self,
+        use_case: AssignRoleToUser,
+        user_repository: FakeUserRepository,
+        role_repository: FakeRoleRepository,
+    ) -> None:
+        org_id = uuid4()
+        user = User.register(
+            organization_id=org_id,
+            email=EmailAddress("nurse5@example.com"),
+            password_hash=HashedPassword(VALID_HASH),
+            first_name="Nora",
+            last_name="Nurse",
+        )
+        await user_repository.add(user)
+        role = Role.create(organization_id=org_id, name="Nurse")
+        role.deactivate()
+        await role_repository.add(role)
+
+        with pytest.raises(InactiveRoleError):
+            await use_case.execute(
+                AssignRoleToUserInput(organization_id=org_id, user_id=user.id, role_id=role.id)
             )

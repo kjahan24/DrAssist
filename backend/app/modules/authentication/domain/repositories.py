@@ -53,7 +53,24 @@ class RoleRepository(ABC):
     async def list_for_user(self, user_id: UUID) -> list[Role]: ...
 
     @abstractmethod
+    async def list_by_organization(self, organization_id: UUID) -> list[Role]: ...
+
+    @abstractmethod
+    async def list_system_roles(self) -> list[Role]: ...
+
+    @abstractmethod
     async def add(self, role: Role) -> None: ...
+
+    @abstractmethod
+    async def delete(self, role_id: UUID) -> None:
+        """Soft delete: sets `deleted_at`. Mirrors `revoke_from_user`'s
+        direct-model-mutation shape below — a full aggregate still gets no
+        separate `update()` method (see module docstring), and deletion
+        isn't modeled as a `Role` method either, since `deleted_at` lives
+        only on the ORM row, never on the domain entity (consistent with
+        `created_by`/`updated_by` being infrastructure-only across every
+        module in this codebase)."""
+        ...
 
     @abstractmethod
     async def assign_to_user(

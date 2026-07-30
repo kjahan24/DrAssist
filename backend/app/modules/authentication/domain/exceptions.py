@@ -55,15 +55,59 @@ class SystemRoleImmutableError(DomainError):
         self.role_id = role_id
 
 
+class RoleNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("role name must not be blank")
+
+
+class InvalidRoleOrganizationScopeError(DomainError):
+    """ "Global system roles must have organization_id = NULL" and
+    "Organization roles must belong to exactly one organization" — the
+    two halves of the same invariant, both violations reported by this
+    one exception."""
+
+    def __init__(self, *, is_system_role: bool, organization_id: UUID | None) -> None:
+        if is_system_role:
+            super().__init__(
+                f"system role has organization_id={organization_id}, but system roles must "
+                "have organization_id=NULL"
+            )
+        else:
+            super().__init__(
+                "organization-scoped role has organization_id=NULL, but every non-system role "
+                "must belong to exactly one organization"
+            )
+        self.is_system_role = is_system_role
+        self.organization_id = organization_id
+
+
+class InactiveRoleError(DomainError):
+    def __init__(self, role_id: UUID) -> None:
+        super().__init__(f"role {role_id} is inactive and cannot be assigned")
+        self.role_id = role_id
+
+
+class RoleOrganizationMismatchError(DomainError):
+    def __init__(self, role_id: UUID, organization_id: UUID) -> None:
+        super().__init__(f"role {role_id} does not belong to organization {organization_id}")
+        self.role_id = role_id
+        self.organization_id = organization_id
+
+
 class PermissionNotFoundError(DomainError):
     def __init__(self, permission_id: UUID) -> None:
         super().__init__(f"no permission found with id {permission_id}")
         self.permission_id = permission_id
 
 
+class PermissionNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("permission name must not be blank")
+
+
 class InvalidPermissionCodeError(DomainError):
     def __init__(self, code: str) -> None:
-        super().__init__(f"{code!r} is not a valid permission code (expected 'module.action')")
+        super().__init__(f"{code!r} is not a valid permission code (expected 'resource.action')")
         self.code = code
 
 
@@ -72,6 +116,12 @@ class PermissionCodeNotRegisteredError(DomainError):
 
     def __init__(self, code: str) -> None:
         super().__init__(f"no registered permission has code {code!r}")
+        self.code = code
+
+
+class DuplicatePermissionCodeError(DomainError):
+    def __init__(self, code: str) -> None:
+        super().__init__(f"a permission with code {code!r} already exists")
         self.code = code
 
 

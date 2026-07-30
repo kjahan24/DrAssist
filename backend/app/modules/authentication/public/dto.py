@@ -6,7 +6,14 @@ there is exactly one definition of each shape.
 
 from app.modules.authentication.application.dto import (
     AuthenticatedPrincipalDTO,
+    PermissionSummaryDTO,
+    RoleSummaryDTO,
     UserSummaryDTO,
 )
 
-__all__ = ["AuthenticatedPrincipalDTO", "UserSummaryDTO"]
+__all__ = [
+    "AuthenticatedPrincipalDTO",
+    "PermissionSummaryDTO",
+    "RoleSummaryDTO",
+    "UserSummaryDTO",
+]

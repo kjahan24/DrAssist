@@ -59,7 +59,7 @@ class TestAssignPermissionToRole:
         role = Role.create(organization_id=uuid4(), name="Nurse")
         await role_repository.add(role)
         permission = Permission.create(
-            code=PermissionCode("patients.read"), module="patients", description="Read"
+            code=PermissionCode("patients.read"), name="Read patients", description="Read"
         )
         await permission_repository.add(permission)
 
@@ -76,7 +76,7 @@ class TestAssignPermissionToRole:
         self, use_case: AssignPermissionToRole, permission_repository: FakePermissionRepository
     ) -> None:
         permission = Permission.create(
-            code=PermissionCode("patients.read"), module="patients", description="Read"
+            code=PermissionCode("patients.read"), name="Read patients", description="Read"
         )
         await permission_repository.add(permission)
 

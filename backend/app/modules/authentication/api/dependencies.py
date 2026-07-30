@@ -17,16 +17,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db_session
 from app.core.config import Settings, get_settings
 from app.core.container import get_event_bus
+from app.modules.authentication.application.services.permission_query_service import (
+    PermissionQueryService,
+)
 from app.modules.authentication.application.services.permission_service import (
     RbacPermissionService,
 )
+from app.modules.authentication.application.services.role_query_service import RoleQueryService
+from app.modules.authentication.application.use_cases.activate_role import ActivateRole
 from app.modules.authentication.application.use_cases.assign_permission_to_role import (
     AssignPermissionToRole,
 )
 from app.modules.authentication.application.use_cases.assign_role_to_user import (
     AssignRoleToUser,
 )
+from app.modules.authentication.application.use_cases.create_permission import CreatePermission
 from app.modules.authentication.application.use_cases.create_role import CreateRole
+from app.modules.authentication.application.use_cases.deactivate_role import DeactivateRole
+from app.modules.authentication.application.use_cases.delete_role import DeleteRole
 from app.modules.authentication.domain.repositories import (
     PermissionRepository,
     RefreshTokenRepository,
@@ -105,6 +113,32 @@ def get_assign_role_to_user_use_case(
     return AssignRoleToUser(
         user_repository=user_repository, role_repository=role_repository, unit_of_work=unit_of_work
     )
+
+
+def get_create_permission_use_case(
+    permission_repository: PermissionRepo, unit_of_work: Uow
+) -> CreatePermission:
+    return CreatePermission(permission_repository=permission_repository, unit_of_work=unit_of_work)
+
+
+def get_delete_role_use_case(role_repository: RoleRepo, unit_of_work: Uow) -> DeleteRole:
+    return DeleteRole(role_repository=role_repository, unit_of_work=unit_of_work)
+
+
+def get_activate_role_use_case(role_repository: RoleRepo, unit_of_work: Uow) -> ActivateRole:
+    return ActivateRole(role_repository=role_repository, unit_of_work=unit_of_work)
+
+
+def get_deactivate_role_use_case(role_repository: RoleRepo, unit_of_work: Uow) -> DeactivateRole:
+    return DeactivateRole(role_repository=role_repository, unit_of_work=unit_of_work)
+
+
+def get_role_query_service(role_repository: RoleRepo) -> RoleQueryService:
+    return RoleQueryService(role_repository=role_repository)
+
+
+def get_permission_query_service(permission_repository: PermissionRepo) -> PermissionQueryService:
+    return PermissionQueryService(permission_repository=permission_repository)
 
 
 def get_jwt_settings(settings: Annotated[Settings, Depends(get_settings)]) -> tuple[str, str]:

@@ -66,6 +66,34 @@ class RoleCreated(DomainEvent):
 
 
 @dataclass(frozen=True, kw_only=True)
+class RoleActivated(DomainEvent):
+    role_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class RoleDeactivated(DomainEvent):
+    role_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class RoleDeleted(DomainEvent):
+    """Fired directly by the `DeleteRole` use case, not via
+    `Role.record_event()` — soft-deletion is a repository-level flag flip
+    (see `RoleRepository.delete`), the same "no in-memory aggregate
+    mutation" shape `AssignRoleToUser` already uses for `UserRoleAssigned`
+    (the `user_roles` association row isn't a full aggregate either)."""
+
+    role_id: UUID
+    organization_id: UUID | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PermissionCreated(DomainEvent):
+    permission_id: UUID
+    code: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class PermissionGrantedToRole(DomainEvent):
     role_id: UUID
     permission_id: UUID

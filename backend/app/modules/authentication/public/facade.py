@@ -8,11 +8,17 @@ from uuid import UUID
 
 from app.modules.authentication.application.dto import (
     AuthenticatedPrincipalDTO,
+    PermissionSummaryDTO,
+    RoleSummaryDTO,
     UserSummaryDTO,
+)
+from app.modules.authentication.application.services.permission_query_service import (
+    PermissionQueryService,
 )
 from app.modules.authentication.application.services.permission_service import (
     RbacPermissionService,
 )
+from app.modules.authentication.application.services.role_query_service import RoleQueryService
 from app.modules.authentication.application.services.token_validation_service import (
     ValidateAccessToken,
     ValidateAccessTokenInput,
@@ -21,22 +27,34 @@ from app.modules.authentication.domain.repositories import UserRepository, UserS
 from app.modules.authentication.public.interfaces import (
     AccessTokenValidationPort,
     PermissionCheckPort,
+    PermissionQueryPort,
+    RoleQueryPort,
     UserQueryPort,
 )
 
 
-class AuthenticationFacade(UserQueryPort, PermissionCheckPort, AccessTokenValidationPort):
+class AuthenticationFacade(
+    UserQueryPort,
+    PermissionCheckPort,
+    AccessTokenValidationPort,
+    RoleQueryPort,
+    PermissionQueryPort,
+):
     def __init__(
         self,
         *,
         user_repository: UserRepository,
         user_session_repository: UserSessionRepository,
         permission_service: RbacPermissionService,
+        role_query_service: RoleQueryService,
+        permission_query_service: PermissionQueryService,
         secret_key: str,
         algorithm: str,
     ) -> None:
         self._users = user_repository
         self._permission_service = permission_service
+        self._role_query_service = role_query_service
+        self._permission_query_service = permission_query_service
         self._validate_access_token = ValidateAccessToken(
             user_repository=user_repository,
             user_session_repository=user_session_repository,
@@ -71,3 +89,30 @@ class AuthenticationFacade(UserQueryPort, PermissionCheckPort, AccessTokenValida
         return await self._validate_access_token.execute(
             ValidateAccessTokenInput(raw_token=raw_access_token)
         )
+
+    async def role_exists(self, role_id: UUID) -> bool:
+        return await self._role_query_service.role_exists(role_id)
+
+    async def get_role_summary(self, role_id: UUID) -> RoleSummaryDTO | None:
+        return await self._role_query_service.get_role_summary(role_id)
+
+    async def list_roles_for_organization(self, organization_id: UUID) -> list[RoleSummaryDTO]:
+        return await self._role_query_service.list_roles_for_organization(organization_id)
+
+    async def list_system_roles(self) -> list[RoleSummaryDTO]:
+        return await self._role_query_service.list_system_roles()
+
+    async def permission_exists(self, permission_id: UUID) -> bool:
+        return await self._permission_query_service.permission_exists(permission_id)
+
+    async def get_permission_summary(self, permission_id: UUID) -> PermissionSummaryDTO | None:
+        return await self._permission_query_service.get_permission_summary(permission_id)
+
+    async def get_permission_by_code(self, code: str) -> PermissionSummaryDTO | None:
+        return await self._permission_query_service.get_permission_by_code(code)
+
+    async def list_all_permissions(self) -> list[PermissionSummaryDTO]:
+        return await self._permission_query_service.list_all_permissions()
+
+    async def list_permissions_for_role(self, role_id: UUID) -> list[PermissionSummaryDTO]:
+        return await self._permission_query_service.list_permissions_for_role(role_id)

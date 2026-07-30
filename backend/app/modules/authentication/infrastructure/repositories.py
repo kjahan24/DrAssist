@@ -151,6 +151,24 @@ class SqlAlchemyRoleRepository(RoleRepository):
             roles.append(role_to_domain(model, await self._get_permission_ids(model.id)))
         return roles
 
+    async def list_by_organization(self, organization_id: UUID) -> list[Role]:
+        stmt = (
+            select(RoleModel)
+            .where(RoleModel.organization_id == organization_id, RoleModel.deleted_at.is_(None))
+            .order_by(RoleModel.name)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [role_to_domain(model, await self._get_permission_ids(model.id)) for model in models]
+
+    async def list_system_roles(self) -> list[Role]:
+        stmt = (
+            select(RoleModel)
+            .where(RoleModel.organization_id.is_(None), RoleModel.deleted_at.is_(None))
+            .order_by(RoleModel.name)
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [role_to_domain(model, await self._get_permission_ids(model.id)) for model in models]
+
     async def add(self, role: Role) -> None:
         model = await self._session.get(RoleModel, role.id)
         if model is None:
@@ -210,6 +228,11 @@ class SqlAlchemyRoleRepository(RoleRepository):
         if row is not None:
             row.deleted_at = datetime.now(UTC)
 
+    async def delete(self, role_id: UUID) -> None:
+        model = await self._session.get(RoleModel, role_id)
+        if model is not None and model.deleted_at is None:
+            model.deleted_at = datetime.now(UTC)
+
     async def is_assigned_to_user(self, *, user_id: UUID, role_id: UUID) -> bool:
         stmt = select(UserRoleModel.id).where(
             UserRoleModel.user_id == user_id,
@@ -240,7 +263,7 @@ class SqlAlchemyPermissionRepository(PermissionRepository):
         stmt = (
             select(PermissionModel)
             .where(PermissionModel.deleted_at.is_(None))
-            .order_by(PermissionModel.module, PermissionModel.code)
+            .order_by(PermissionModel.resource, PermissionModel.code)
         )
         models = (await self._session.execute(stmt)).scalars().all()
         return [permission_to_domain(model) for model in models]

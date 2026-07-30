@@ -81,6 +81,7 @@ def role_to_domain(model: RoleModel, permission_ids: set[UUID]) -> Role:
         name=model.name,
         description=model.description,
         is_system_role=model.is_system_role,
+        is_active=model.is_active,
         permission_ids=set(permission_ids),
         created_at=model.created_at,
         updated_at=model.updated_at,
@@ -93,6 +94,7 @@ def apply_role_to_model(entity: Role, model: RoleModel) -> None:
     model.name = entity.name
     model.description = entity.description
     model.is_system_role = entity.is_system_role
+    model.is_active = entity.is_active
 
 
 # --- Permission --------------------------------------------------------
@@ -102,7 +104,9 @@ def permission_to_domain(model: PermissionModel) -> Permission:
     return Permission(
         id=model.id,
         code=PermissionCode(model.code),
-        module=model.module,
+        name=model.name,
+        resource=model.resource,
+        action=model.action,
         description=model.description,
         created_at=model.created_at,
         updated_at=model.updated_at,
@@ -112,7 +116,9 @@ def permission_to_domain(model: PermissionModel) -> Permission:
 def apply_permission_to_model(entity: Permission, model: PermissionModel) -> None:
     model.id = entity.id
     model.code = str(entity.code)
-    model.module = entity.module
+    model.name = entity.name
+    model.resource = entity.resource
+    model.action = entity.action
     model.description = entity.description
 
 
