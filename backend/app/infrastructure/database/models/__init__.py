@@ -5,6 +5,7 @@
 # every table without any module needing to know this file exists — see
 # `docs/backend-architecture/01_folder_structure.md` (Evolution note).
 
+from app.modules.appointment.infrastructure import models as appointment_models
 from app.modules.attachments.infrastructure import models as attachments_models
 from app.modules.authentication.infrastructure import models as authentication_models
 from app.modules.chief_complaints.infrastructure import models as chief_complaints_models
@@ -29,6 +30,7 @@ from app.modules.visit.infrastructure import models as visit_models
 from app.modules.vital_signs.infrastructure import models as vital_signs_models
 
 __all__ = [
+    "appointment_models",
     "attachments_models",
     "authentication_models",
     "chief_complaints_models",

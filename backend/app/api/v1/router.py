@@ -9,6 +9,7 @@ own `api/router.py`, not touch this file again.
 
 from fastapi import APIRouter
 
+from app.modules.appointment.api.router import router as appointment_router
 from app.modules.attachments.api.router import router as attachments_router
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
@@ -63,3 +64,4 @@ api_router.include_router(doctor_review_router, prefix="/doctor-reviews", tags=[
 api_router.include_router(
     patient_history_router, prefix="/patient-history", tags=["patient-history"]
 )
+api_router.include_router(appointment_router, prefix="/appointments", tags=["appointment"])
