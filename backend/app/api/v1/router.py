@@ -29,6 +29,7 @@ from app.modules.patient.api.router import router as patient_router
 from app.modules.patient_history.api.router import router as patient_history_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
+from app.modules.schedule.api.router import router as schedule_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
 from app.modules.visit.api.router import router as visit_router
 from app.modules.vital_signs.api.router import router as vital_signs_router
@@ -65,3 +66,4 @@ api_router.include_router(
     patient_history_router, prefix="/patient-history", tags=["patient-history"]
 )
 api_router.include_router(appointment_router, prefix="/appointments", tags=["appointment"])
+api_router.include_router(schedule_router, prefix="/schedule", tags=["schedule"])

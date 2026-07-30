@@ -25,6 +25,7 @@ from app.modules.patient.infrastructure import models as patient_models
 from app.modules.patient_history.infrastructure import models as patient_history_models
 from app.modules.prescriptions.infrastructure import models as prescriptions_models
 from app.modules.procedures.infrastructure import models as procedures_models
+from app.modules.schedule.infrastructure import models as schedule_models
 from app.modules.soap_notes.infrastructure import models as soap_notes_models
 from app.modules.visit.infrastructure import models as visit_models
 from app.modules.vital_signs.infrastructure import models as vital_signs_models
@@ -48,6 +49,7 @@ __all__ = [
     "patient_models",
     "prescriptions_models",
     "procedures_models",
+    "schedule_models",
     "soap_notes_models",
     "visit_models",
     "vital_signs_models",
