@@ -21,6 +21,7 @@ from app.modules.lab_orders.infrastructure import models as lab_orders_models
 from app.modules.lab_results.infrastructure import models as lab_results_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
+from app.modules.patient_history.infrastructure import models as patient_history_models
 from app.modules.prescriptions.infrastructure import models as prescriptions_models
 from app.modules.procedures.infrastructure import models as procedures_models
 from app.modules.soap_notes.infrastructure import models as soap_notes_models
@@ -41,6 +42,7 @@ __all__ = [
     "lab_orders_models",
     "lab_results_models",
     "organization_models",
+    "patient_history_models",
     "patient_models",
     "prescriptions_models",
     "procedures_models",

@@ -25,6 +25,7 @@ from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
+from app.modules.patient_history.api.router import router as patient_history_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
@@ -59,3 +60,6 @@ api_router.include_router(
 )
 api_router.include_router(icd10_coding_router, prefix="/icd10-codes", tags=["icd10-coding"])
 api_router.include_router(doctor_review_router, prefix="/doctor-reviews", tags=["doctor-review"])
+api_router.include_router(
+    patient_history_router, prefix="/patient-history", tags=["patient-history"]
+)
