@@ -20,6 +20,7 @@ from app.modules.doctor_review.infrastructure import models as doctor_review_mod
 from app.modules.icd10_coding.infrastructure import models as icd10_coding_models
 from app.modules.lab_orders.infrastructure import models as lab_orders_models
 from app.modules.lab_results.infrastructure import models as lab_results_models
+from app.modules.notification.infrastructure import models as notification_models
 from app.modules.organization.infrastructure import models as organization_models
 from app.modules.patient.infrastructure import models as patient_models
 from app.modules.patient_history.infrastructure import models as patient_history_models
@@ -44,6 +45,7 @@ __all__ = [
     "icd10_coding_models",
     "lab_orders_models",
     "lab_results_models",
+    "notification_models",
     "organization_models",
     "patient_history_models",
     "patient_models",
