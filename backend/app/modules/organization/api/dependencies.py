@@ -16,6 +16,7 @@ from fastapi import Depends
 from app.api.deps import DbSession
 from app.core.container import get_event_bus
 from app.modules.organization.application.services.organization_query_service import (
+    DepartmentQueryService,
     OrganizationQueryService,
 )
 from app.modules.organization.application.use_cases.create_department import CreateDepartment
@@ -69,6 +70,10 @@ def get_organization_query_service(
         organization_repository=organization_repository,
         organization_settings_repository=organization_settings_repository,
     )
+
+
+def get_department_query_service(department_repository: DepartmentRepo) -> DepartmentQueryService:
+    return DepartmentQueryService(department_repository=department_repository)
 
 
 def get_create_organization_use_case(

@@ -126,4 +126,105 @@ class DoctorSummaryDTO:
     organization_id: UUID
     user_id: UUID
     employee_id: str
+    joining_date: date
     status: DoctorStatus
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `doctor_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.doctor_id
+
+
+# --- Sub-resource read models (added by the REST APIs task) ----------------
+# See `app.modules.patient.application.dto`'s own "Sub-resource read
+# models" section for the full reasoning — identical situation here.
+
+
+@dataclass(frozen=True, slots=True)
+class DoctorProfileSummaryDTO:
+    profile_id: UUID
+    doctor_id: UUID
+    full_name: str
+    gender: Gender
+    date_of_birth: date
+    phone: str | None
+    email: str | None
+    address: str | None
+    biography: str | None
+    years_of_experience: int
+    qualification: str | None
+    consultation_fee: Decimal | None
+    profile_photo_url: str | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `profile_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.profile_id
+
+
+@dataclass(frozen=True, slots=True)
+class DoctorLicenseSummaryDTO:
+    license_id: UUID
+    doctor_id: UUID
+    license_number: str
+    issuing_authority: str
+    country: str
+    issue_date: date
+    expiry_date: date
+    verification_status: LicenseVerificationStatus
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `license_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.license_id
+
+
+@dataclass(frozen=True, slots=True)
+class DoctorSpecializationSummaryDTO:
+    specialization_id: UUID
+    organization_id: UUID
+    doctor_id: UUID
+    specialization_name: str
+    is_primary: bool
+    years_of_experience: int
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `specialization_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.specialization_id
+
+
+@dataclass(frozen=True, slots=True)
+class DoctorScheduleEntrySummaryDTO:
+    """Named `...EntrySummaryDTO`, not `DoctorScheduleSummaryDTO` — that
+    name is already `app.modules.schedule.application.dto
+    .DoctorScheduleSummaryDTO`'s, a materially different, separately
+    persisted `DoctorSchedule` concept (adds `organization_id`/
+    `slot_duration_minutes`) — see
+    `app.modules.schedule.infrastructure.models`'s own docstring for the
+    full discussion of this pre-existing naming collision between the two
+    modules, which this task does not attempt to resolve."""
+
+    schedule_id: UUID
+    doctor_id: UUID
+    day_of_week: DayOfWeek
+    start_time: time
+    end_time: time
+    break_start: time | None
+    break_end: time | None
+    is_available: bool
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `schedule_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.schedule_id

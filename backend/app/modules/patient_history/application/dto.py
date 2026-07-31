@@ -66,3 +66,10 @@ class PatientHistorySummaryDTO:
     encounter_date: date
     summary: str
     created_from_review: bool
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `patient_history_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.patient_history_id

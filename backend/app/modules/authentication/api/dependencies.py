@@ -35,6 +35,7 @@ from app.modules.authentication.application.use_cases.create_permission import C
 from app.modules.authentication.application.use_cases.create_role import CreateRole
 from app.modules.authentication.application.use_cases.deactivate_role import DeactivateRole
 from app.modules.authentication.application.use_cases.delete_role import DeleteRole
+from app.modules.authentication.container import build_authentication_facade
 from app.modules.authentication.domain.repositories import (
     PermissionRepository,
     RefreshTokenRepository,
@@ -49,6 +50,7 @@ from app.modules.authentication.infrastructure.repositories import (
     SqlAlchemyUserRepository,
     SqlAlchemyUserSessionRepository,
 )
+from app.modules.authentication.public.interfaces import UserQueryPort
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 
@@ -139,6 +141,16 @@ def get_role_query_service(role_repository: RoleRepo) -> RoleQueryService:
 
 def get_permission_query_service(permission_repository: PermissionRepo) -> PermissionQueryService:
     return PermissionQueryService(permission_repository=permission_repository)
+
+
+def get_user_query_port(session: DbSession) -> UserQueryPort:
+    """Reuses `AuthenticationFacade` (via its own composition root) rather
+    than adding a dedicated `UserQueryService` class: `get_user_summary`
+    has exactly one implementation, on the facade itself, and every other
+    module already depends on this same facade/composition root for the
+    identical `UserQueryPort` — see e.g.
+    `app.modules.doctor.api.dependencies.get_user_query_port`."""
+    return build_authentication_facade(session)
 
 
 def get_jwt_settings(settings: Annotated[Settings, Depends(get_settings)]) -> tuple[str, str]:

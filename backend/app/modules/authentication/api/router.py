@@ -1,15 +1,310 @@
-"""Authentication module route aggregator.
+"""HTTP routes for the Authentication module.
 
-No endpoints are registered yet — login, register, refresh, and logout
-are explicitly out of scope for this task (see `container.py`). Included
-into `app/api/v1/router.py` now so the module is present in the OpenAPI
-schema/app wiring from day one; endpoint modules will be added under this
-package and `include_router`'d here, e.g.:
-
-    from app.modules.authentication.api.endpoints import login
-    router.include_router(login.router, tags=["authentication"])
+Login/register/refresh/logout remain explicitly out of scope (see
+`container.py`) — this router covers only the RBAC administration
+surface (`Role`/`Permission`/assignments) already backed by
+`api/dependencies.py`, plus a read-only `GET /users/{user_id}`. Roles are
+always created within the caller's own organization via this endpoint
+(`is_system_role` stays `False`, matching `CreateRoleRequest`'s own
+excluded-field shape — system roles are seed data, not something this
+endpoint creates).
 """
 
-from fastapi import APIRouter
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
+
+from app.api.deps import CurrentUser, ensure_same_organization
+from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.core.exceptions import NotFoundError
+from app.modules.authentication.api.dependencies import (
+    get_activate_role_use_case,
+    get_assign_permission_to_role_use_case,
+    get_assign_role_to_user_use_case,
+    get_create_permission_use_case,
+    get_create_role_use_case,
+    get_deactivate_role_use_case,
+    get_delete_role_use_case,
+    get_permission_query_service,
+    get_role_query_service,
+    get_user_query_port,
+)
+from app.modules.authentication.api.schemas import (
+    AssignPermissionToRoleRequest,
+    AssignRoleToUserRequest,
+    CreatePermissionRequest,
+    CreateRoleRequest,
+    PermissionResponse,
+    RoleResponse,
+    UserResponse,
+)
+from app.modules.authentication.application.dto import (
+    ActivateRoleInput,
+    AssignPermissionToRoleInput,
+    AssignRoleToUserInput,
+    CreatePermissionInput,
+    CreateRoleInput,
+    DeactivateRoleInput,
+    DeleteRoleInput,
+)
+from app.modules.authentication.application.services.permission_query_service import (
+    PermissionQueryService,
+)
+from app.modules.authentication.application.services.role_query_service import RoleQueryService
+from app.modules.authentication.application.use_cases.activate_role import ActivateRole
+from app.modules.authentication.application.use_cases.assign_permission_to_role import (
+    AssignPermissionToRole,
+)
+from app.modules.authentication.application.use_cases.assign_role_to_user import (
+    AssignRoleToUser,
+)
+from app.modules.authentication.application.use_cases.create_permission import CreatePermission
+from app.modules.authentication.application.use_cases.create_role import CreateRole
+from app.modules.authentication.application.use_cases.deactivate_role import DeactivateRole
+from app.modules.authentication.application.use_cases.delete_role import DeleteRole
+from app.modules.authentication.public.interfaces import UserQueryPort
+from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
+
+UserPort = Annotated[UserQueryPort, Depends(get_user_query_port)]
+RoleQS = Annotated[RoleQueryService, Depends(get_role_query_service)]
+PermissionQS = Annotated[PermissionQueryService, Depends(get_permission_query_service)]
+
+CreateRoleUseCase = Annotated[CreateRole, Depends(get_create_role_use_case)]
+DeleteRoleUseCase = Annotated[DeleteRole, Depends(get_delete_role_use_case)]
+ActivateRoleUseCase = Annotated[ActivateRole, Depends(get_activate_role_use_case)]
+DeactivateRoleUseCase = Annotated[DeactivateRole, Depends(get_deactivate_role_use_case)]
+CreatePermissionUseCase = Annotated[CreatePermission, Depends(get_create_permission_use_case)]
+AssignPermissionUseCase = Annotated[
+    AssignPermissionToRole, Depends(get_assign_permission_to_role_use_case)
+]
+AssignRoleUseCase = Annotated[AssignRoleToUser, Depends(get_assign_role_to_user_use_case)]
+
+
+def _ensure_same_organization_if_scoped(
+    organization_id: UUID | None, current_user: CurrentUser
+) -> None:
+    """`Role.organization_id` is `None` for system roles, which every
+    organization can read — only an organization-scoped role needs the
+    tenant-isolation check."""
+    if organization_id is not None:
+        ensure_same_organization(organization_id, current_user)
+
+
+async def _get_role_response(
+    role_id: UUID, query_service: RoleQS, current_user: CurrentUser
+) -> RoleResponse:
+    summary = await query_service.get_role_summary(role_id)
+    if summary is None:
+        raise NotFoundError(f"no role found with id {role_id}")
+    response = RoleResponse.model_validate(summary)
+    _ensure_same_organization_if_scoped(response.organization_id, current_user)
+    return response
+
+
+async def _get_permission_response(
+    permission_id: UUID, query_service: PermissionQS
+) -> PermissionResponse:
+    summary = await query_service.get_permission_summary(permission_id)
+    if summary is None:
+        raise NotFoundError(f"no permission found with id {permission_id}")
+    return PermissionResponse.model_validate(summary)
+
+
+# --- Users (read-only) -----------------------------------------------------
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(user_id: UUID, user_port: UserPort, current_user: CurrentUser) -> UserResponse:
+    summary = await user_port.get_user_summary(user_id)
+    if summary is None:
+        raise NotFoundError(f"no user found with id {user_id}")
+    response = UserResponse.model_validate(summary)
+    ensure_same_organization(response.organization_id, current_user)
+    return response
+
+
+# --- Roles -------------------------------------------------------------------
+
+
+@router.post("/roles", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
+async def create_role(
+    body: CreateRoleRequest,
+    use_case: CreateRoleUseCase,
+    query_service: RoleQS,
+    current_user: CurrentUser,
+) -> RoleResponse:
+    output = await use_case.execute(
+        CreateRoleInput(
+            organization_id=current_user.organization_id,
+            **body.model_dump(),
+            created_by=current_user.user_id,
+        )
+    )
+    return await _get_role_response(output.role_id, query_service, current_user)
+
+
+@router.get("/roles", response_model=PaginatedResponse[RoleResponse])
+async def list_roles(
+    query_service: RoleQS,
+    pagination: Pagination,
+    sorting: Sorting,
+    current_user: CurrentUser,
+) -> PaginatedResponse[RoleResponse]:
+    summaries = await query_service.list_roles_for_organization(current_user.organization_id)
+    items = [RoleResponse.model_validate(s) for s in summaries]
+    return paginate_and_sort(
+        items,
+        pagination=pagination,
+        sorting=sorting,
+        allowed_sort_fields=frozenset({"name", "is_active"}),
+    )
+
+
+@router.get("/roles/system", response_model=PaginatedResponse[RoleResponse])
+async def list_system_roles(
+    query_service: RoleQS, pagination: Pagination, sorting: Sorting, current_user: CurrentUser
+) -> PaginatedResponse[RoleResponse]:
+    # Registered before the parameterized "/roles/{role_id}" route below —
+    # Starlette matches path templates in registration order, and both
+    # have the same segment count, so "system" would otherwise be parsed
+    # as (and fail validation as) a role_id UUID.
+    summaries = await query_service.list_system_roles()
+    items = [RoleResponse.model_validate(s) for s in summaries]
+    return paginate_and_sort(
+        items,
+        pagination=pagination,
+        sorting=sorting,
+        allowed_sort_fields=frozenset({"name", "is_active"}),
+    )
+
+
+@router.get("/roles/{role_id}", response_model=RoleResponse)
+async def get_role(role_id: UUID, query_service: RoleQS, current_user: CurrentUser) -> RoleResponse:
+    return await _get_role_response(role_id, query_service, current_user)
+
+
+@router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_role(
+    role_id: UUID, use_case: DeleteRoleUseCase, current_user: CurrentUser
+) -> None:
+    await use_case.execute(DeleteRoleInput(role_id=role_id))
+
+
+@router.patch("/roles/{role_id}/activate", response_model=RoleResponse)
+async def activate_role(
+    role_id: UUID, use_case: ActivateRoleUseCase, query_service: RoleQS, current_user: CurrentUser
+) -> RoleResponse:
+    await use_case.execute(ActivateRoleInput(role_id=role_id))
+    return await _get_role_response(role_id, query_service, current_user)
+
+
+@router.patch("/roles/{role_id}/deactivate", response_model=RoleResponse)
+async def deactivate_role(
+    role_id: UUID,
+    use_case: DeactivateRoleUseCase,
+    query_service: RoleQS,
+    current_user: CurrentUser,
+) -> RoleResponse:
+    await use_case.execute(DeactivateRoleInput(role_id=role_id))
+    return await _get_role_response(role_id, query_service, current_user)
+
+
+@router.get("/roles/{role_id}/permissions", response_model=PaginatedResponse[PermissionResponse])
+async def list_permissions_for_role(
+    role_id: UUID,
+    query_service: PermissionQS,
+    pagination: Pagination,
+    sorting: Sorting,
+    current_user: CurrentUser,
+) -> PaginatedResponse[PermissionResponse]:
+    summaries = await query_service.list_permissions_for_role(role_id)
+    items = [PermissionResponse.model_validate(s) for s in summaries]
+    return paginate_and_sort(
+        items,
+        pagination=pagination,
+        sorting=sorting,
+        allowed_sort_fields=frozenset({"code", "resource", "action"}),
+    )
+
+
+@router.post("/roles/{role_id}/permissions", response_model=PermissionResponse, status_code=201)
+async def assign_permission_to_role(
+    role_id: UUID,
+    body: AssignPermissionToRoleRequest,
+    use_case: AssignPermissionUseCase,
+    query_service: PermissionQS,
+    current_user: CurrentUser,
+) -> PermissionResponse:
+    output = await use_case.execute(
+        AssignPermissionToRoleInput(
+            role_id=role_id,
+            permission_code=body.permission_code,
+            granted_by=current_user.user_id,
+        )
+    )
+    return await _get_permission_response(output.permission_id, query_service)
+
+
+# --- Permissions ---------------------------------------------------------
+
+
+@router.post("/permissions", response_model=PermissionResponse, status_code=201)
+async def create_permission(
+    body: CreatePermissionRequest,
+    use_case: CreatePermissionUseCase,
+    query_service: PermissionQS,
+    current_user: CurrentUser,
+) -> PermissionResponse:
+    output = await use_case.execute(
+        CreatePermissionInput(**body.model_dump(), created_by=current_user.user_id)
+    )
+    return await _get_permission_response(output.permission_id, query_service)
+
+
+@router.get("/permissions/{permission_id}", response_model=PermissionResponse)
+async def get_permission(
+    permission_id: UUID, query_service: PermissionQS, current_user: CurrentUser
+) -> PermissionResponse:
+    return await _get_permission_response(permission_id, query_service)
+
+
+@router.get("/permissions", response_model=PaginatedResponse[PermissionResponse])
+async def list_permissions(
+    query_service: PermissionQS,
+    pagination: Pagination,
+    sorting: Sorting,
+    current_user: CurrentUser,
+) -> PaginatedResponse[PermissionResponse]:
+    summaries = await query_service.list_all_permissions()
+    items = [PermissionResponse.model_validate(s) for s in summaries]
+    return paginate_and_sort(
+        items,
+        pagination=pagination,
+        sorting=sorting,
+        allowed_sort_fields=frozenset({"code", "resource", "action"}),
+    )
+
+
+# --- Role assignments ------------------------------------------------------
+
+
+@router.post("/users/{user_id}/roles", response_model=RoleResponse, status_code=201)
+async def assign_role_to_user(
+    user_id: UUID,
+    body: AssignRoleToUserRequest,
+    use_case: AssignRoleUseCase,
+    query_service: RoleQS,
+    current_user: CurrentUser,
+) -> RoleResponse:
+    await use_case.execute(
+        AssignRoleToUserInput(
+            organization_id=current_user.organization_id,
+            user_id=user_id,
+            role_id=body.role_id,
+            granted_by=current_user.user_id,
+        )
+    )
+    return await _get_role_response(body.role_id, query_service, current_user)

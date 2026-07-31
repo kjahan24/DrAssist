@@ -7,6 +7,7 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from datetime import date
 from uuid import UUID, uuid4
 
 from app.modules.appointment.domain.entities import Appointment
@@ -18,7 +19,7 @@ from app.modules.doctor.application.dto import DoctorSummaryDTO
 from app.modules.doctor.domain.enums import DoctorStatus
 from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.patient.application.dto import PatientSummaryDTO
-from app.modules.patient.domain.enums import PatientStatus
+from app.modules.patient.domain.enums import Gender, PatientStatus
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.application.dto import VisitSummaryDTO
 from app.modules.visit.domain.enums import VisitStatus
@@ -135,6 +136,8 @@ def make_patient_summary(**overrides: object) -> PatientSummaryDTO:
         "patient_number": "PAT-0001",
         "first_name": "Jane",
         "last_name": "Doe",
+        "gender": Gender.FEMALE,
+        "date_of_birth": date(1990, 1, 1),
         "status": PatientStatus.ACTIVE,
     }
     defaults.update(overrides)
@@ -147,6 +150,7 @@ def make_doctor_summary(**overrides: object) -> DoctorSummaryDTO:
         "organization_id": uuid4(),
         "user_id": uuid4(),
         "employee_id": "EMP-0001",
+        "joining_date": date(2020, 1, 1),
         "status": DoctorStatus.ACTIVE,
     }
     defaults.update(overrides)

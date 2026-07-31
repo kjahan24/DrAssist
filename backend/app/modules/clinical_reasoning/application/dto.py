@@ -98,3 +98,11 @@ class ClinicalReasoningSummaryDTO:
     review_status: ReviewStatus
     reviewed_by_doctor: bool
     confidence_score: float | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `clinical_reasoning_id` — see
+        `AppointmentSummaryDTO.id`'s own docstring in
+        `app.modules.appointment.application.dto` for the full reasoning
+        (identical situation in every module)."""
+        return self.clinical_reasoning_id

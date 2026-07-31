@@ -120,3 +120,10 @@ class ICD10CodingSummaryDTO:
     review_status: ReviewStatus
     differential_diagnosis_id: UUID | None
     coding_notes: str | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `icd10_coding_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.icd10_coding_id

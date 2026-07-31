@@ -33,5 +33,6 @@ class DoctorQueryService:
             organization_id=doctor.organization_id,
             user_id=doctor.user_id,
             employee_id=doctor.employee_id,
+            joining_date=doctor.joining_date,
             status=doctor.status,
         )

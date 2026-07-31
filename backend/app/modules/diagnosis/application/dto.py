@@ -50,3 +50,14 @@ class DiagnosisSummaryDTO:
     diagnosis_name: str
     diagnosis_type: DiagnosisType
     diagnosis_status: DiagnosisStatus
+    icd10_code: str | None = None
+    clinical_notes: str | None = None
+    diagnosed_by: UUID | None = None
+    diagnosed_at: datetime | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `diagnosis_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.diagnosis_id

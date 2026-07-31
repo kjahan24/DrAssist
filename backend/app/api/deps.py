@@ -15,11 +15,12 @@ layering rule) placed this dependency inside `core/security/permissions.py`.
 
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ForbiddenError, UnauthorizedError
+from app.core.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from app.infrastructure.database.session import async_session_factory
 from app.modules.authentication.application.dto import AuthenticatedPrincipalDTO
 from app.modules.authentication.application.exceptions import AuthenticationError
@@ -85,3 +86,20 @@ def require_permission(
         return principal
 
     return _check
+
+
+def ensure_same_organization(
+    resource_organization_id: UUID, principal: AuthenticatedPrincipalDTO
+) -> None:
+    """Multi-tenant isolation for "get/act on a specific resource by id"
+    endpoints: raises `NotFoundError` — not `ForbiddenError` — when the
+    fetched resource belongs to a different organization than the caller,
+    so a cross-tenant request cannot distinguish "doesn't exist" from
+    "exists, but isn't yours" (the standard practice this codebase's own
+    RLS design in `docs/database/00_overview.md` aims for at the database
+    layer; this is the same guarantee applied at the API layer for every
+    endpoint built by the REST APIs task, none of which has RLS session
+    variables wired up yet — see that task's own scope note).
+    """
+    if resource_organization_id != principal.organization_id:
+        raise NotFoundError("resource not found")

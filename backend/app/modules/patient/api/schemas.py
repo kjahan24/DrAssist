@@ -62,7 +62,13 @@ class PatientResponse(ORJSONModel):
 
 
 class RegisterPatientRequest(ORJSONModel):
-    organization_id: UUID
+    """No `organization_id` field — the REST APIs task's router derives it
+    from `CurrentUser.organization_id` instead of trusting a client-
+    supplied value here, which would otherwise let any authenticated
+    caller register a patient into a *different* organization than their
+    own. This is a security correction to this schema's original shape
+    (built before `CurrentUser` existed for any endpoint to depend on)."""
+
     patient_number: str = Field(min_length=1, max_length=64)
     first_name: str = Field(min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)

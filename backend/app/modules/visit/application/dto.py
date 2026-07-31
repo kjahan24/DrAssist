@@ -7,7 +7,7 @@ also re-exported from `public/dto.py` for other modules to depend on.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from app.modules.visit.domain.enums import VisitPriority, VisitStatus, VisitType
@@ -54,3 +54,24 @@ class VisitSummaryDTO:
     doctor_id: UUID
     visit_number: str
     visit_status: VisitStatus
+    visit_type: VisitType | None = None
+    appointment_id: UUID | None = None
+    priority: VisitPriority | None = None
+    visit_date: date | None = None
+    check_in_time: datetime | None = None
+    consultation_start_time: datetime | None = None
+    consultation_end_time: datetime | None = None
+    check_out_time: datetime | None = None
+    chief_complaint_summary: str | None = None
+    reason_for_visit: str | None = None
+    room_number: str | None = None
+    follow_up_required: bool = False
+    follow_up_date: date | None = None
+    notes: str | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `visit_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.visit_id

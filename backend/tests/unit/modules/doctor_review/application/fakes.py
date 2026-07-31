@@ -280,6 +280,8 @@ def make_clinical_note_summary(**overrides: object) -> ClinicalNoteSummaryDTO:
         "note_number": "CN-0001",
         "note_type": ClinicalNoteType.INITIAL,
         "status": ClinicalNoteStatus.DRAFT,
+        "encounter_datetime": datetime(2024, 1, 1, 9, 0, tzinfo=UTC),
+        "ai_generated": False,
     }
     defaults.update(overrides)
     return ClinicalNoteSummaryDTO(**defaults)  # type: ignore[arg-type]

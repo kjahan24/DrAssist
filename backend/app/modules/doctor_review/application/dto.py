@@ -116,3 +116,10 @@ class DoctorReviewSummaryDTO:
     approved_reasoning: bool
     approved_differential_diagnosis: bool
     approved_icd10: bool
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `doctor_review_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.doctor_review_id

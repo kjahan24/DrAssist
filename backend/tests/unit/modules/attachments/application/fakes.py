@@ -7,6 +7,7 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from datetime import date
 from uuid import UUID, uuid4
 
 from app.modules.attachments.domain.entities import VisitAttachment
@@ -124,5 +125,6 @@ class FakeDoctorQueryPort(DoctorQueryPort):
             organization_id=organization_id,
             user_id=uuid4(),
             employee_id="EMP-001",
+            joining_date=date(2020, 1, 1),
             status=DoctorStatus.ACTIVE,
         )

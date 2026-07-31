@@ -105,3 +105,11 @@ class DifferentialDiagnosisSummaryDTO:
     clinical_reasoning_id: UUID | None
     likelihood_score: float | None
     supporting_evidence: str | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `differential_diagnosis_id` — see
+        `AppointmentSummaryDTO.id`'s own docstring in
+        `app.modules.appointment.application.dto` for the full reasoning
+        (identical situation in every module)."""
+        return self.differential_diagnosis_id

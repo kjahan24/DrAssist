@@ -125,6 +125,13 @@ class RoleSummaryDTO:
     is_system_role: bool
     is_active: bool
 
+    @property
+    def id(self) -> UUID:
+        """Alias for `role_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.role_id
+
 
 @dataclass(frozen=True, slots=True)
 class PermissionSummaryDTO:
@@ -135,6 +142,13 @@ class PermissionSummaryDTO:
     resource: str
     action: str
 
+    @property
+    def id(self) -> UUID:
+        """Alias for `permission_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.permission_id
+
 
 @dataclass(frozen=True, slots=True)
 class UserSummaryDTO:
@@ -144,6 +158,16 @@ class UserSummaryDTO:
     first_name: str
     last_name: str
     status: UserStatus
+    phone: str | None = None
+    mfa_enabled: bool = False
+    locale: str = "en-US"
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `user_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.user_id
 
 
 @dataclass(frozen=True, slots=True)

@@ -77,6 +77,9 @@ class AuthenticationFacade(
             first_name=user.first_name,
             last_name=user.last_name,
             status=user.status,
+            phone=user.phone,
+            mfa_enabled=user.mfa_enabled,
+            locale=user.locale,
         )
 
     async def has_permission(self, user_id: UUID, permission_code: str) -> bool:

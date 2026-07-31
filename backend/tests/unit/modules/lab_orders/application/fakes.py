@@ -6,6 +6,7 @@ mocks as the default"). Application-layer use case/service tests depend
 on these, never on a real database or another module's facade.
 """
 
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from app.modules.clinical_notes.domain.enums import ClinicalNoteStatus, ClinicalNoteType
@@ -127,6 +128,8 @@ def make_clinical_note_summary(**overrides: object) -> ClinicalNoteSummaryDTO:
         "note_number": "CN-0001",
         "note_type": ClinicalNoteType.INITIAL,
         "status": ClinicalNoteStatus.DRAFT,
+        "encounter_datetime": datetime(2024, 1, 1, 9, 0),
+        "ai_generated": False,
     }
     defaults.update(overrides)
     return ClinicalNoteSummaryDTO(**defaults)  # type: ignore[arg-type]

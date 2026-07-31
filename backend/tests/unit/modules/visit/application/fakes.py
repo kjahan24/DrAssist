@@ -7,12 +7,13 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from datetime import date
 from uuid import UUID, uuid4
 
 from app.modules.doctor.domain.enums import DoctorStatus
 from app.modules.doctor.public.dto import DoctorSummaryDTO
 from app.modules.doctor.public.interfaces import DoctorQueryPort
-from app.modules.patient.domain.enums import PatientStatus
+from app.modules.patient.domain.enums import Gender, PatientStatus
 from app.modules.patient.public.dto import PatientSummaryDTO
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.domain.entities import PatientVisit
@@ -93,6 +94,8 @@ class FakePatientQueryPort(PatientQueryPort):
             patient_number="PAT-001",
             first_name="Jane",
             last_name="Doe",
+            gender=Gender.FEMALE,
+            date_of_birth=date(1990, 1, 1),
             status=PatientStatus.ACTIVE,
         )
 
@@ -121,5 +124,6 @@ class FakeDoctorQueryPort(DoctorQueryPort):
             organization_id=organization_id,
             user_id=uuid4(),
             employee_id="EMP-001",
+            joining_date=date(2020, 1, 1),
             status=DoctorStatus.ACTIVE,
         )

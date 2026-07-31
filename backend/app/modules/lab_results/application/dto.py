@@ -108,6 +108,13 @@ class LabResultItemSummaryDTO:
     reference_range: str | None
     interpretation: str | None
 
+    @property
+    def id(self) -> UUID:
+        """Alias for `lab_result_item_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.lab_result_item_id
+
 
 @dataclass(frozen=True, slots=True)
 class LabResultSummaryDTO:
@@ -123,3 +130,10 @@ class LabResultSummaryDTO:
     laboratory_name: str | None
     comments: str | None
     items: list[LabResultItemSummaryDTO] = field(default_factory=list)
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `lab_result_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.lab_result_id

@@ -27,6 +27,14 @@ from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.organization.container import build_organization_facade
 from app.modules.organization.public.interfaces import OrganizationQueryPort
 from app.modules.patient.application.services.patient_query_service import PatientQueryService
+from app.modules.patient.application.services.patient_sub_resource_query_service import (
+    EmergencyContactQueryService,
+    InsuranceQueryService,
+    PatientAllergyQueryService,
+    PatientContactQueryService,
+    PatientMedicalConditionQueryService,
+    PatientMedicationQueryService,
+)
 from app.modules.patient.application.use_cases.add_emergency_contact import AddEmergencyContact
 from app.modules.patient.application.use_cases.add_insurance import AddInsurance
 from app.modules.patient.application.use_cases.add_patient_contact import AddPatientContact
@@ -120,6 +128,44 @@ DoctorPort = Annotated[DoctorQueryPort, Depends(get_doctor_query_port)]
 
 def get_patient_query_service(patient_repository: PatientRepo) -> PatientQueryService:
     return PatientQueryService(patient_repository=patient_repository)
+
+
+def get_patient_contact_query_service(
+    patient_contact_repository: PatientContactRepo,
+) -> PatientContactQueryService:
+    return PatientContactQueryService(patient_contact_repository=patient_contact_repository)
+
+
+def get_emergency_contact_query_service(
+    emergency_contact_repository: EmergencyContactRepo,
+) -> EmergencyContactQueryService:
+    return EmergencyContactQueryService(emergency_contact_repository=emergency_contact_repository)
+
+
+def get_insurance_query_service(insurance_repository: InsuranceRepo) -> InsuranceQueryService:
+    return InsuranceQueryService(insurance_repository=insurance_repository)
+
+
+def get_patient_allergy_query_service(
+    patient_allergy_repository: PatientAllergyRepo,
+) -> PatientAllergyQueryService:
+    return PatientAllergyQueryService(patient_allergy_repository=patient_allergy_repository)
+
+
+def get_patient_medication_query_service(
+    patient_medication_repository: PatientMedicationRepo,
+) -> PatientMedicationQueryService:
+    return PatientMedicationQueryService(
+        patient_medication_repository=patient_medication_repository
+    )
+
+
+def get_patient_medical_condition_query_service(
+    patient_medical_condition_repository: PatientMedicalConditionRepo,
+) -> PatientMedicalConditionQueryService:
+    return PatientMedicalConditionQueryService(
+        patient_medical_condition_repository=patient_medical_condition_repository
+    )
 
 
 def get_register_patient_use_case(

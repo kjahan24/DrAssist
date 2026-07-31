@@ -115,6 +115,13 @@ class PrescriptionItemSummaryDTO:
     generic_name: str | None
     instructions: str | None
 
+    @property
+    def id(self) -> UUID:
+        """Alias for `prescription_item_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.prescription_item_id
+
 
 @dataclass(frozen=True, slots=True)
 class PrescriptionSummaryDTO:
@@ -129,3 +136,10 @@ class PrescriptionSummaryDTO:
     status: PrescriptionStatus
     notes: str | None
     items: list[PrescriptionItemSummaryDTO] = field(default_factory=list)
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `prescription_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.prescription_id

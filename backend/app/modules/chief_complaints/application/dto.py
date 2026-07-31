@@ -49,3 +49,17 @@ class ChiefComplaintSummaryDTO:
     visit_id: UUID
     sequence_number: int
     complaint: str
+    duration_value: int | None = None
+    duration_unit: DurationUnit | None = None
+    severity: Severity | None = None
+    onset: Onset | None = None
+    notes: str | None = None
+    recorded_by: UUID | None = None
+    recorded_at: datetime | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `chief_complaint_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.chief_complaint_id

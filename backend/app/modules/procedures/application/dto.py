@@ -49,3 +49,15 @@ class ProcedureSummaryDTO:
     sequence_number: int
     procedure_name: str
     procedure_status: ProcedureStatus
+    procedure_code: str | None = None
+    procedure_category: str | None = None
+    performed_by: UUID | None = None
+    performed_at: datetime | None = None
+    notes: str | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `procedure_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.procedure_id

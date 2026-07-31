@@ -102,6 +102,27 @@ class OrganizationSummaryDTO:
     type: OrganizationType
     is_active: bool
     timezone: str
+    currency: str
+    language: str
+    legal_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    tax_number: str | None = None
+    registration_number: str | None = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    postal_code: str | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `organization_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.organization_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,3 +134,38 @@ class OrganizationSettingsSummaryDTO:
     default_language: str
     default_currency: str
     feature_flags: dict[str, bool] = field(default_factory=dict)
+    working_hours: dict[str, Any] = field(default_factory=dict)
+    ai_settings: dict[str, Any] = field(default_factory=dict)
+    notification_settings: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `settings_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.settings_id
+
+
+# --- Sub-resource read models (added by the REST APIs task) ----------------
+# See `app.modules.patient.application.dto`'s own "Sub-resource read
+# models" section for the full reasoning — identical situation here:
+# `DepartmentSummaryDTO` and the query service that builds it
+# (`DepartmentQueryService`, appended to
+# `application/services/organization_query_service.py`) did not exist
+# before this task.
+
+
+@dataclass(frozen=True, slots=True)
+class DepartmentSummaryDTO:
+    department_id: UUID
+    organization_id: UUID
+    name: str
+    description: str | None
+    status: DepartmentStatus
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `department_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.department_id

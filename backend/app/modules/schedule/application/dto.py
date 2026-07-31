@@ -124,6 +124,13 @@ class DoctorScheduleSummaryDTO:
     slot_duration_minutes: int
     is_active: bool
 
+    @property
+    def id(self) -> UUID:
+        """Alias for `schedule_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.schedule_id
+
 
 @dataclass(frozen=True, slots=True)
 class DoctorTimeOffSummaryDTO:
@@ -133,3 +140,10 @@ class DoctorTimeOffSummaryDTO:
     start_datetime: datetime
     end_datetime: datetime
     reason: str | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `time_off_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.time_off_id

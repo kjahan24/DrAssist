@@ -126,3 +126,19 @@ class AppointmentSummaryDTO:
     checked_in_at: datetime | None
     completed_at: datetime | None
     cancelled_at: datetime | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `appointment_id`, added by the REST APIs task.
+
+        `api/schemas.py`'s `AppointmentResponse.id` (and every other
+        module's `<X>Response.id`) uses the uniform field name `id`, while
+        this DTO — like every other module's Summary DTO — keeps its own
+        domain-meaningful primary-key name (`appointment_id`) for its
+        existing non-API callers. `ORJSONModel.model_validate(summary)`
+        (`from_attributes=True`) reads `id` via plain attribute access, so
+        a read-only property bridges the two without renaming the
+        canonical field or touching any existing caller. The same
+        property is added to every other module's Summary DTO for the
+        same reason — see this docstring as the shared rationale."""
+        return self.appointment_id

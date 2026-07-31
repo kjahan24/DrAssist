@@ -9,8 +9,10 @@ own `api/router.py`, not touch this file again.
 
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.health import router as health_router
 from app.modules.appointment.api.router import router as appointment_router
 from app.modules.attachments.api.router import router as attachments_router
+from app.modules.audit_log.api.router import router as audit_log_router
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
@@ -24,6 +26,7 @@ from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
+from app.modules.notification.api.router import router as notification_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
 from app.modules.patient_history.api.router import router as patient_history_router
@@ -35,6 +38,11 @@ from app.modules.visit.api.router import router as visit_router
 from app.modules.vital_signs.api.router import router as vital_signs_router
 
 api_router = APIRouter()
+# No prefix: `health.py`'s own routes are already "/health" and
+# "/health/db" (so a load balancer can probe them without depending on
+# api_version), unlike every module below, whose router paths are
+# relative and need their own resource-name prefix.
+api_router.include_router(health_router, tags=["health"])
 api_router.include_router(authentication_router, prefix="/auth", tags=["authentication"])
 api_router.include_router(organization_router, prefix="/organizations", tags=["organization"])
 api_router.include_router(doctor_router, prefix="/doctors", tags=["doctor"])
@@ -67,3 +75,5 @@ api_router.include_router(
 )
 api_router.include_router(appointment_router, prefix="/appointments", tags=["appointment"])
 api_router.include_router(schedule_router, prefix="/schedule", tags=["schedule"])
+api_router.include_router(notification_router, prefix="/notifications", tags=["notification"])
+api_router.include_router(audit_log_router, prefix="/audit-logs", tags=["audit-log"])

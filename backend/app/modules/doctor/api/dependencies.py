@@ -24,6 +24,12 @@ from app.core.container import get_event_bus
 from app.modules.authentication.container import build_authentication_facade
 from app.modules.authentication.public.interfaces import UserQueryPort
 from app.modules.doctor.application.services.doctor_query_service import DoctorQueryService
+from app.modules.doctor.application.services.doctor_sub_resource_query_service import (
+    DoctorLicenseQueryService,
+    DoctorProfileQueryService,
+    DoctorScheduleEntryQueryService,
+    DoctorSpecializationQueryService,
+)
 from app.modules.doctor.application.use_cases.add_doctor_license import AddDoctorLicense
 from app.modules.doctor.application.use_cases.add_doctor_schedule import AddDoctorSchedule
 from app.modules.doctor.application.use_cases.add_doctor_specialization import (
@@ -96,6 +102,32 @@ UserPort = Annotated[UserQueryPort, Depends(get_user_query_port)]
 
 def get_doctor_query_service(doctor_repository: DoctorRepo) -> DoctorQueryService:
     return DoctorQueryService(doctor_repository=doctor_repository)
+
+
+def get_doctor_profile_query_service(
+    doctor_profile_repository: DoctorProfileRepo,
+) -> DoctorProfileQueryService:
+    return DoctorProfileQueryService(doctor_profile_repository=doctor_profile_repository)
+
+
+def get_doctor_license_query_service(
+    doctor_license_repository: DoctorLicenseRepo,
+) -> DoctorLicenseQueryService:
+    return DoctorLicenseQueryService(doctor_license_repository=doctor_license_repository)
+
+
+def get_doctor_specialization_query_service(
+    doctor_specialization_repository: DoctorSpecializationRepo,
+) -> DoctorSpecializationQueryService:
+    return DoctorSpecializationQueryService(
+        doctor_specialization_repository=doctor_specialization_repository
+    )
+
+
+def get_doctor_schedule_entry_query_service(
+    doctor_schedule_repository: DoctorScheduleRepo,
+) -> DoctorScheduleEntryQueryService:
+    return DoctorScheduleEntryQueryService(doctor_schedule_repository=doctor_schedule_repository)
 
 
 def get_onboard_doctor_use_case(

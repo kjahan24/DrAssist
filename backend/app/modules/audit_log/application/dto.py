@@ -69,3 +69,10 @@ class AuditLogSummaryDTO:
     request_id: str | None
     correlation_id: str | None
     created_at: datetime
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `audit_log_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.audit_log_id

@@ -22,6 +22,10 @@ os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
 os.environ.setdefault("MINIO_ACCESS_KEY", "test")
 os.environ.setdefault("MINIO_SECRET_KEY", "testtesttest")
 os.environ.setdefault("GEMINI_API_KEY", "test")
+# httpx's `ASGITransport` sends `Host: testserver` by default (see the
+# `client` fixture below) — without this, `TrustedHostMiddleware` 400s
+# every request before it ever reaches a route.
+os.environ.setdefault("BACKEND_ALLOWED_HOSTS", "testserver,localhost,127.0.0.1")
 
 
 @pytest.fixture(scope="session")

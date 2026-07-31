@@ -10,8 +10,14 @@ service-interface guidance (a formal interface earns its place at the
 
 from uuid import UUID
 
-from app.modules.organization.application.dto import OrganizationSummaryDTO
+from app.modules.organization.application.dto import (
+    DepartmentSummaryDTO,
+    OrganizationSettingsSummaryDTO,
+    OrganizationSummaryDTO,
+)
+from app.modules.organization.domain.entities import Department
 from app.modules.organization.domain.repositories import (
+    DepartmentRepository,
     OrganizationRepository,
     OrganizationSettingsRepository,
 )
@@ -47,6 +53,39 @@ class OrganizationQueryService:
             type=organization.type,
             is_active=organization.is_active,
             timezone=organization.timezone,
+            currency=organization.currency,
+            language=organization.language,
+            legal_name=organization.legal_name,
+            email=str(organization.email) if organization.email is not None else None,
+            phone=organization.phone,
+            website=organization.website,
+            logo_url=organization.logo_url,
+            tax_number=organization.tax_number,
+            registration_number=organization.registration_number,
+            address=organization.address,
+            city=organization.city,
+            state=organization.state,
+            country=organization.country,
+            postal_code=organization.postal_code,
+        )
+
+    async def get_organization_settings_summary(
+        self, organization_id: UUID
+    ) -> OrganizationSettingsSummaryDTO | None:
+        settings = await self._settings.get_by_organization_id(organization_id)
+        if settings is None:
+            return None
+        return OrganizationSettingsSummaryDTO(
+            organization_id=settings.organization_id,
+            settings_id=settings.id,
+            appointment_duration_minutes=settings.appointment_duration_minutes,
+            default_timezone=settings.default_timezone,
+            default_language=settings.default_language,
+            default_currency=settings.default_currency,
+            feature_flags=settings.feature_flags,
+            working_hours=settings.working_hours,
+            ai_settings=settings.ai_settings,
+            notification_settings=settings.notification_settings,
         )
 
     async def get_default_timezone(self, organization_id: UUID) -> str | None:
@@ -61,3 +100,42 @@ class OrganizationQueryService:
 
         organization = await self._organizations.get_by_id(organization_id)
         return organization.timezone if organization is not None else None
+
+
+class DepartmentQueryService:
+    """Read-only queries for `Department` — added by the REST APIs task.
+
+    A separate, single-repository class rather than a third constructor
+    parameter on `OrganizationQueryService`: that service backs the
+    public `OrganizationQueryPort` consumed by other modules (Doctor,
+    Patient, ...) via `build_organization_facade`, so adding a required
+    `department_repository` parameter there would break every existing
+    caller. See
+    `app.modules.patient.application.services.patient_sub_resource_query_service`'s
+    own docstring for the full reasoning (identical situation).
+    """
+
+    def __init__(self, *, department_repository: DepartmentRepository) -> None:
+        self._departments = department_repository
+
+    async def get_department_summary(self, department_id: UUID) -> DepartmentSummaryDTO | None:
+        department = await self._departments.get_by_id(department_id)
+        return _department_to_summary(department) if department is not None else None
+
+    async def list_departments_for_organization(
+        self, organization_id: UUID
+    ) -> list[DepartmentSummaryDTO]:
+        departments = await self._departments.list_by_organization(
+            organization_id, offset=0, limit=1000
+        )
+        return [_department_to_summary(department) for department in departments]
+
+
+def _department_to_summary(department: Department) -> DepartmentSummaryDTO:
+    return DepartmentSummaryDTO(
+        department_id=department.id,
+        organization_id=department.organization_id,
+        name=department.name,
+        description=department.description,
+        status=department.status,
+    )

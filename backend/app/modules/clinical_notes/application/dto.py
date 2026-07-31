@@ -68,3 +68,22 @@ class ClinicalNoteSummaryDTO:
     note_number: str
     note_type: ClinicalNoteType
     status: ClinicalNoteStatus
+    encounter_datetime: datetime
+    ai_generated: bool
+    chief_complaint_summary: str | None = None
+    history_summary: str | None = None
+    examination_summary: str | None = None
+    assessment_summary: str | None = None
+    plan_summary: str | None = None
+    ai_model: str | None = None
+    ai_version: str | None = None
+    signed_at: datetime | None = None
+    signed_by: UUID | None = None
+    locked_at: datetime | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `clinical_note_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.clinical_note_id

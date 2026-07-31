@@ -62,6 +62,17 @@ class LabResultQueryService:
             return None
         return await self._to_summary(lab_result)
 
+    async def get_lab_result_summary_by_id(self, lab_result_id: UUID) -> LabResultSummaryDTO | None:
+        """By the lab result's own id — added by the REST APIs task so
+        `AddLabResultItem` (whose output only carries `lab_result_id`, not
+        `lab_order_id`) has a way to refetch the full summary after adding
+        an item — see `PrescriptionQueryService.get_prescription_summary_by_id`
+        for the identical situation."""
+        lab_result = await self._lab_results.get_by_id(lab_result_id)
+        if lab_result is None:
+            return None
+        return await self._to_summary(lab_result)
+
     async def list_lab_results_for_patient(self, patient_id: UUID) -> list[LabResultSummaryDTO]:
         lab_results = await self._lab_results.list_by_patient(patient_id)
         return [await self._to_summary(lab_result) for lab_result in lab_results]

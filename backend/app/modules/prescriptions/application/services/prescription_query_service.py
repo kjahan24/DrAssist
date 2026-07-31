@@ -59,6 +59,19 @@ class PrescriptionQueryService:
             return None
         return await self._to_summary(prescription)
 
+    async def get_prescription_summary_by_id(
+        self, prescription_id: UUID
+    ) -> PrescriptionSummaryDTO | None:
+        """By the prescription's own id — added by the REST APIs task so
+        `AddPrescriptionItem` (whose output only carries `prescription_id`,
+        not `clinical_note_id`) has a way to refetch the full summary
+        after adding an item, without a second round-trip through
+        `get_by_clinical_note_id`."""
+        prescription = await self._prescriptions.get_by_id(prescription_id)
+        if prescription is None:
+            return None
+        return await self._to_summary(prescription)
+
     async def list_prescriptions_for_patient(
         self, patient_id: UUID
     ) -> list[PrescriptionSummaryDTO]:

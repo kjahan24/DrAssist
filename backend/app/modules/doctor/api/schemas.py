@@ -80,7 +80,10 @@ class DoctorScheduleResponse(ORJSONModel):
 
 
 class OnboardDoctorRequest(ORJSONModel):
-    organization_id: UUID
+    """No `organization_id` field — see
+    `app.modules.patient.api.schemas.RegisterPatientRequest`'s own
+    docstring for why (identical fix, applied by the same task)."""
+
     user_id: UUID
     employee_id: str = Field(min_length=1, max_length=64)
     joining_date: date

@@ -50,3 +50,21 @@ class VitalSignsSummaryDTO:
     visit_id: UUID
     recorded_at: datetime
     bmi: Decimal | None
+    temperature_c: Decimal
+    pulse_bpm: int
+    respiratory_rate: int
+    systolic_bp: int
+    diastolic_bp: int
+    spo2: int
+    recorded_by: UUID | None = None
+    height_cm: Decimal | None = None
+    weight_kg: Decimal | None = None
+    blood_glucose: Decimal | None = None
+    pain_score: int | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `vital_signs_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.vital_signs_id

@@ -56,3 +56,20 @@ class AttachmentSummaryDTO:
     visit_id: UUID
     file_name: str
     attachment_type: AttachmentType
+    original_file_name: str | None = None
+    mime_type: str | None = None
+    file_size_bytes: int | None = None
+    storage_provider: StorageProvider | None = None
+    storage_bucket: str | None = None
+    storage_key: str | None = None
+    checksum_sha256: str | None = None
+    uploaded_by: UUID | None = None
+    uploaded_at: datetime | None = None
+    description: str | None = None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `attachment_id` — see `AppointmentSummaryDTO.id`'s
+        own docstring in `app.modules.appointment.application.dto` for
+        the full reasoning (identical situation in every module)."""
+        return self.attachment_id

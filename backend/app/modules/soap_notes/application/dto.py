@@ -76,3 +76,10 @@ class SOAPNoteSummaryDTO:
     vital_sign_summary: str | None
     assessment: str | None
     plan: str | None
+
+    @property
+    def id(self) -> UUID:
+        """Alias for `soap_note_id` — see `AppointmentSummaryDTO.id`'s own
+        docstring in `app.modules.appointment.application.dto` for the
+        full reasoning (identical situation in every module)."""
+        return self.soap_note_id
