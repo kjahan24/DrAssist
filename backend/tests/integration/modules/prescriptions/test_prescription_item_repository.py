@@ -171,6 +171,62 @@ class TestListByPrescription:
         assert await repo.list_by_prescription(prescription.id) == []
 
 
+class TestListByPrescriptions:
+    """Search & Filtering module —
+    `SqlAlchemyPrescriptionItemRepository.list_by_prescriptions`: the
+    batch variant `PrescriptionQueryService.search_prescriptions` uses to
+    avoid an N+1 query per result row."""
+
+    async def test_returns_items_grouped_across_multiple_prescriptions_in_one_query(
+        self, db_session: AsyncSession
+    ) -> None:
+        prescription_a = await _persist_prescription(db_session)
+        prescription_b = await _persist_prescription(db_session)
+        prescription_c = await _persist_prescription(db_session)
+        repo = SqlAlchemyPrescriptionItemRepository(db_session)
+
+        await repo.add(
+            PrescriptionItem.create(
+                prescription_id=prescription_a.id,
+                medication_name="Amoxicillin",
+                strength="500mg",
+                dosage="1",
+                dosage_unit="tablet",
+                frequency="three times daily",
+                route=AdministrationRoute.ORAL,
+                duration="7",
+                duration_unit="days",
+                quantity="21",
+            )
+        )
+        await repo.add(
+            PrescriptionItem.create(
+                prescription_id=prescription_b.id,
+                medication_name="Ibuprofen",
+                strength="200mg",
+                dosage="2",
+                dosage_unit="tablet",
+                frequency="twice daily",
+                route=AdministrationRoute.ORAL,
+                duration="5",
+                duration_unit="days",
+                quantity="20",
+            )
+        )
+        await db_session.commit()
+
+        items = await repo.list_by_prescriptions([prescription_a.id, prescription_b.id])
+
+        assert {i.medication_name for i in items} == {"Amoxicillin", "Ibuprofen"}
+        assert all(i.prescription_id != prescription_c.id for i in items)
+
+    async def test_returns_empty_list_for_no_prescription_ids(
+        self, db_session: AsyncSession
+    ) -> None:
+        repo = SqlAlchemyPrescriptionItemRepository(db_session)
+        assert await repo.list_by_prescriptions([]) == []
+
+
 class TestPrescriptionItemRequiresValidReference:
     async def test_nonexistent_prescription_id_violates_fk_constraint(
         self, db_session: AsyncSession

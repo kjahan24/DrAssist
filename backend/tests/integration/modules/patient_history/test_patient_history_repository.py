@@ -176,6 +176,126 @@ class TestListByVisit:
         assert await repo.list_by_visit(uuid4()) == []
 
 
+class TestPatientHistorySearch:
+    """Search & Filtering module — `SqlAlchemyPatientHistoryRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_patient(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, note, review = await persist_full_chain(db_session)
+        (
+            _org2,
+            other_patient,
+            other_doctor,
+            other_visit,
+            other_note,
+            other_review,
+        ) = await persist_full_chain(db_session)
+        repo = SqlAlchemyPatientHistoryRepository(db_session)
+        history = PatientHistory.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_review_id=review.id,
+            history_type=HistoryType.CLINICAL_NOTE,
+            reference_type=ReferenceType.CLINICAL_NOTE,
+            reference_id=uuid4(),
+            encounter_date=date(2026, 1, 1),
+            summary="Community-acquired pneumonia follow-up",
+        )
+        other = PatientHistory.create(
+            organization_id=_org2.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_review_id=other_review.id,
+            history_type=HistoryType.CLINICAL_NOTE,
+            reference_type=ReferenceType.CLINICAL_NOTE,
+            reference_id=uuid4(),
+            encounter_date=date(2026, 1, 1),
+            summary="Unrelated organization's history entry",
+        )
+        await repo.add(history)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, patient_id=patient.id)
+
+        assert total == 1
+        assert [h.id for h in results] == [history.id]
+
+    async def test_query_matches_summary_full_text(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, note, review = await persist_full_chain(db_session)
+        repo = SqlAlchemyPatientHistoryRepository(db_session)
+        history = PatientHistory.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_review_id=review.id,
+            history_type=HistoryType.CLINICAL_NOTE,
+            reference_type=ReferenceType.CLINICAL_NOTE,
+            reference_id=uuid4(),
+            encounter_date=date(2026, 1, 1),
+            summary="Community-acquired pneumonia follow-up",
+        )
+        await repo.add(history)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="pneumonia")
+
+        assert total == 1
+        assert [h.id for h in results] == [history.id]
+
+    async def test_history_type_reference_type_and_encounter_date_filters(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, note, review = await persist_full_chain(db_session)
+        repo = SqlAlchemyPatientHistoryRepository(db_session)
+        reference_id = uuid4()
+        history = PatientHistory.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_review_id=review.id,
+            history_type=HistoryType.CLINICAL_NOTE,
+            reference_type=ReferenceType.CLINICAL_NOTE,
+            reference_id=reference_id,
+            encounter_date=date(2026, 6, 1),
+            summary="Follow-up visit",
+        )
+        other_type = PatientHistory.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_review_id=review.id,
+            history_type=HistoryType.LAB,
+            reference_type=ReferenceType.LAB_RESULT,
+            reference_id=uuid4(),
+            encounter_date=date(2026, 6, 1),
+            summary="Lab result recorded",
+        )
+        await repo.add(history)
+        await repo.add(other_type)
+        await db_session.commit()
+
+        by_type, type_total = await repo.search(
+            organization_id=organization.id, history_types=[HistoryType.CLINICAL_NOTE]
+        )
+        by_reference, reference_total = await repo.search(
+            organization_id=organization.id,
+            reference_types=[ReferenceType.CLINICAL_NOTE],
+            reference_id=reference_id,
+        )
+        by_date, date_total = await repo.search(
+            organization_id=organization.id, encounter_date_from=date(2026, 3, 1)
+        )
+
+        assert type_total == 1
+        assert [h.id for h in by_type] == [history.id]
+        assert reference_total == 1
+        assert [h.id for h in by_reference] == [history.id]
+        assert date_total == 2
+
+
 class TestDuplicateReferenceUniqueness:
     async def test_duplicate_reference_type_and_id_violates_unique_index(
         self, db_session: AsyncSession

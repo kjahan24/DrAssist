@@ -7,6 +7,9 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.doctor.public.dto import DoctorSummaryDTO
@@ -22,7 +25,12 @@ from app.modules.patient.domain.entities import (
     PatientMedicalCondition,
     PatientMedication,
 )
-from app.modules.patient.domain.enums import AllergyStatus, ConditionStatus, ContactType
+from app.modules.patient.domain.enums import (
+    AllergyStatus,
+    ConditionStatus,
+    ContactType,
+    PatientStatus,
+)
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
@@ -59,6 +67,46 @@ class FakePatientRepository(PatientRepository):
     ) -> list[Patient]:
         matches = [p for p in self._patients.values() if p.organization_id == organization_id]
         return matches[offset : offset + limit]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[PatientStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Patient], int]:
+        matches = [p for p in self._patients.values() if p.organization_id == organization_id]
+        if statuses:
+            matches = [p for p in matches if p.status in statuses]
+        if created_from is not None:
+            matches = [p for p in matches if p.created_at >= created_from]
+        if created_to is not None:
+            matches = [p for p in matches if p.created_at <= created_to]
+        if updated_from is not None:
+            matches = [p for p in matches if p.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [p for p in matches if p.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                p
+                for p in matches
+                if term in p.first_name.lower()
+                or term in p.last_name.lower()
+                or term in p.patient_number.lower()
+            ]
+        matches.sort(key=lambda p: getattr(p, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, patient: Patient) -> None:
         self._patients[patient.id] = patient

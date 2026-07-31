@@ -7,13 +7,15 @@ New — this module had no `api/` package before the REST APIs task (see
 explicit transition map `domain/entities.py` enforces.
 """
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.notification.api.dependencies import (
     get_cancel_notification_use_case,
@@ -51,6 +53,7 @@ from app.modules.notification.application.use_cases.mark_notification_read impor
 from app.modules.notification.application.use_cases.mark_notification_sent import (
     MarkNotificationSent,
 )
+from app.modules.notification.domain.enums import NotificationPriority, NotificationStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
@@ -97,6 +100,54 @@ async def get_notification(
     notification_id: UUID, query_service: QueryService, current_user: CurrentUser
 ) -> NotificationResponse:
     return await _get_response(notification_id, query_service, current_user)
+
+
+@router.get("", response_model=PaginatedResponse[NotificationResponse])
+async def search_notifications(
+    query_service: QueryService,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[NotificationStatus] | None, Query(alias="status")] = None,
+    priority: Annotated[list[NotificationPriority] | None, Query()] = None,
+    recipient_user_id: UUID | None = None,
+    reference_type: str | None = None,
+    reference_id: UUID | None = None,
+    scheduled_from: datetime | None = None,
+    scheduled_to: datetime | None = None,
+) -> PaginatedResponse[NotificationResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over notifications — see
+    `NotificationRepository.search`'s docstring for how `filters.q` is
+    matched and for the `sort_order` default nuance."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search_notifications(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        priorities=priority,
+        recipient_user_id=recipient_user_id,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        scheduled_from=scheduled_from,
+        scheduled_to=scheduled_to,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [NotificationResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.get(

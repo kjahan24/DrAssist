@@ -6,13 +6,16 @@ mocks as the default"). Application-layer use case/service tests depend
 on these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.clinical_notes.domain.enums import ClinicalNoteStatus, ClinicalNoteType
 from app.modules.clinical_notes.public.dto import ClinicalNoteSummaryDTO
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.domain.entities import LabOrder, LabOrderItem
+from app.modules.lab_orders.domain.enums import LabOrderStatus, Priority
 from app.modules.lab_orders.domain.repositories import LabOrderItemRepository, LabOrderRepository
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.domain.domain_event import DomainEvent
@@ -39,6 +42,67 @@ class FakeLabOrderRepository(LabOrderRepository):
         matches = [o for o in self._lab_orders.values() if o.patient_id == patient_id]
         return sorted(matches, key=lambda o: o.created_at)
 
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[LabOrderStatus] | None = None,
+        priorities: Sequence[Priority] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        clinical_note_id: UUID | None = None,
+        ordered_from: datetime | None = None,
+        ordered_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "ordered_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[LabOrder], int]:
+        matches = [o for o in self._lab_orders.values() if o.organization_id == organization_id]
+        if statuses:
+            matches = [o for o in matches if o.status in statuses]
+        if priorities:
+            matches = [o for o in matches if o.priority in priorities]
+        if patient_id is not None:
+            matches = [o for o in matches if o.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [o for o in matches if o.doctor_id == doctor_id]
+        if visit_id is not None:
+            matches = [o for o in matches if o.visit_id == visit_id]
+        if clinical_note_id is not None:
+            matches = [o for o in matches if o.clinical_note_id == clinical_note_id]
+        if ordered_from is not None:
+            matches = [o for o in matches if o.ordered_at >= ordered_from]
+        if ordered_to is not None:
+            matches = [o for o in matches if o.ordered_at <= ordered_to]
+        if created_from is not None:
+            matches = [o for o in matches if o.created_at >= created_from]
+        if created_to is not None:
+            matches = [o for o in matches if o.created_at <= created_to]
+        if updated_from is not None:
+            matches = [o for o in matches if o.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [o for o in matches if o.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                o
+                for o in matches
+                if term in o.order_number.lower()
+                or (o.clinical_information is not None and term in o.clinical_information.lower())
+                or (o.notes is not None and term in o.notes.lower())
+            ]
+        matches.sort(key=lambda o: getattr(o, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
+
     async def add(self, lab_order: LabOrder) -> None:
         self._lab_orders[lab_order.id] = lab_order
 
@@ -52,6 +116,11 @@ class FakeLabOrderItemRepository(LabOrderItemRepository):
 
     async def list_by_lab_order(self, lab_order_id: UUID) -> list[LabOrderItem]:
         matches = [i for i in self._items.values() if i.lab_order_id == lab_order_id]
+        return sorted(matches, key=lambda i: i.created_at)
+
+    async def list_by_lab_orders(self, lab_order_ids: Sequence[UUID]) -> list[LabOrderItem]:
+        ids = set(lab_order_ids)
+        matches = [i for i in self._items.values() if i.lab_order_id in ids]
         return sorted(matches, key=lambda i: i.created_at)
 
     async def add(self, item: LabOrderItem) -> None:

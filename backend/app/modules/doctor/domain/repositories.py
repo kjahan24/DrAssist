@@ -10,6 +10,9 @@ tracking.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.doctor.domain.entities import (
@@ -19,7 +22,7 @@ from app.modules.doctor.domain.entities import (
     DoctorSchedule,
     DoctorSpecialization,
 )
-from app.modules.doctor.domain.enums import DayOfWeek
+from app.modules.doctor.domain.enums import DayOfWeek, DoctorStatus
 
 
 class DoctorRepository(ABC):
@@ -38,6 +41,32 @@ class DoctorRepository(ABC):
     async def list_by_organization(
         self, organization_id: UUID, *, offset: int = 0, limit: int = 20
     ) -> list[Doctor]: ...
+
+    @abstractmethod
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DoctorStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Doctor], int]:
+        """Search & Filtering module: organization-scoped search over
+        doctors — `query` combines a full-text match on the doctor's
+        profile `full_name` (outer-joined, since a profile is not
+        guaranteed to exist) with a partial match on `employee_id`, the
+        same "one term, two techniques" shape as
+        `PatientRepository.search`. Returns `(page_of_doctors,
+        total_matching_count)`."""
+        ...
 
     @abstractmethod
     async def add(self, doctor: Doctor) -> None: ...

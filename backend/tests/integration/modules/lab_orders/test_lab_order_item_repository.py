@@ -119,6 +119,46 @@ class TestListByLabOrder:
         assert await repo.list_by_lab_order(lab_order.id) == []
 
 
+class TestListByLabOrders:
+    """Search & Filtering module —
+    `SqlAlchemyLabOrderItemRepository.list_by_lab_orders`: the batch
+    variant `LabOrderQueryService.search_lab_orders` uses to avoid an N+1
+    query per result row."""
+
+    async def test_returns_items_grouped_across_multiple_lab_orders_in_one_query(
+        self, db_session: AsyncSession
+    ) -> None:
+        lab_order_a = await _persist_lab_order(db_session)
+        lab_order_b = await _persist_lab_order(db_session)
+        repo = SqlAlchemyLabOrderItemRepository(db_session)
+
+        await repo.add(
+            LabOrderItem.create(
+                lab_order_id=lab_order_a.id,
+                test_code="CBC",
+                test_name="Complete Blood Count",
+                specimen_type="Blood",
+            )
+        )
+        await repo.add(
+            LabOrderItem.create(
+                lab_order_id=lab_order_b.id,
+                test_code="URIN",
+                test_name="Urinalysis",
+                specimen_type="Urine",
+            )
+        )
+        await db_session.commit()
+
+        items = await repo.list_by_lab_orders([lab_order_a.id, lab_order_b.id])
+
+        assert {i.test_name for i in items} == {"Complete Blood Count", "Urinalysis"}
+
+    async def test_returns_empty_list_for_no_lab_order_ids(self, db_session: AsyncSession) -> None:
+        repo = SqlAlchemyLabOrderItemRepository(db_session)
+        assert await repo.list_by_lab_orders([]) == []
+
+
 class TestLabOrderItemRequiresValidReference:
     async def test_nonexistent_lab_order_id_violates_fk_constraint(
         self, db_session: AsyncSession

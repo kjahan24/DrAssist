@@ -159,6 +159,50 @@ class TestListByLabResult:
         assert await repo.list_by_lab_result(lab_result.id) == []
 
 
+class TestListByLabResults:
+    """Search & Filtering module —
+    `SqlAlchemyLabResultItemRepository.list_by_lab_results`: the batch
+    variant `LabResultQueryService.search_lab_results` uses to avoid an
+    N+1 query per result row."""
+
+    async def test_returns_items_grouped_across_multiple_lab_results_in_one_query(
+        self, db_session: AsyncSession
+    ) -> None:
+        lab_result_a, lab_order_item_a = await _persist_lab_result(db_session)
+        lab_result_b, lab_order_item_b = await _persist_lab_result(db_session)
+        repo = SqlAlchemyLabResultItemRepository(db_session)
+
+        await repo.add(
+            LabResultItem.create(
+                lab_result_id=lab_result_a.id,
+                lab_order_item_id=lab_order_item_a.id,  # type: ignore[attr-defined]
+                test_code="CBC",
+                test_name="Complete Blood Count",
+                result_value="5.4",
+                abnormal_flag=AbnormalFlag.NORMAL,
+            )
+        )
+        await repo.add(
+            LabResultItem.create(
+                lab_result_id=lab_result_b.id,
+                lab_order_item_id=lab_order_item_b.id,  # type: ignore[attr-defined]
+                test_code="HGB",
+                test_name="Hemoglobin",
+                result_value="9.8",
+                abnormal_flag=AbnormalFlag.LOW,
+            )
+        )
+        await db_session.commit()
+
+        items = await repo.list_by_lab_results([lab_result_a.id, lab_result_b.id])
+
+        assert {i.test_name for i in items} == {"Complete Blood Count", "Hemoglobin"}
+
+    async def test_returns_empty_list_for_no_lab_result_ids(self, db_session: AsyncSession) -> None:
+        repo = SqlAlchemyLabResultItemRepository(db_session)
+        assert await repo.list_by_lab_results([]) == []
+
+
 class TestLabResultItemRequiresValidReferences:
     async def test_nonexistent_lab_result_id_violates_fk_constraint(
         self, db_session: AsyncSession

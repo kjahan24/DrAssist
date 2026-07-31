@@ -120,6 +120,64 @@ class TestGetPatient:
         assert response.status_code == 404
 
 
+class TestSearchPatients:
+    """Search & Filtering module — `GET /api/v1/patients`."""
+
+    async def test_search_scopes_to_the_callers_organization(
+        self,
+        authenticated_client: AsyncClient,
+        authenticated_client_for_other_org: AsyncClient,
+    ) -> None:
+        create_response = await authenticated_client.post(
+            "/api/v1/patients", json=_register_patient_payload()
+        )
+        patient_id = create_response.json()["id"]
+        await authenticated_client_for_other_org.post(
+            "/api/v1/patients", json=_register_patient_payload()
+        )
+
+        response = await authenticated_client.get("/api/v1/patients")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert patient_id in [item["id"] for item in body["items"]]
+        assert body["page"] == 1
+        assert body["page_size"] == body["limit"]
+        assert body["total_pages"] >= 1
+
+    async def test_search_query_matches_first_name(self, authenticated_client: AsyncClient) -> None:
+        unique_first_name = f"Zephyrine{unique_suffix()}"
+        create_response = await authenticated_client.post(
+            "/api/v1/patients", json=_register_patient_payload(first_name=unique_first_name)
+        )
+        patient_id = create_response.json()["id"]
+
+        response = await authenticated_client.get(
+            "/api/v1/patients", params={"q": unique_first_name}
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert [item["id"] for item in body["items"]] == [patient_id]
+        assert body["total"] == 1
+
+    async def test_search_rejects_an_unknown_sort_field(
+        self, authenticated_client: AsyncClient
+    ) -> None:
+        response = await authenticated_client.get(
+            "/api/v1/patients", params={"sort_by": "not-a-real-field"}
+        )
+
+        assert response.status_code == 400
+
+    async def test_search_requires_authentication(
+        self, unauthenticated_client: AsyncClient
+    ) -> None:
+        response = await unauthenticated_client.get("/api/v1/patients")
+
+        assert response.status_code == 401
+
+
 class TestPatientAllergiesSubResource:
     async def test_record_and_list_allergies_paginated(
         self, authenticated_client: AsyncClient

@@ -6,13 +6,16 @@ mocks as the default"). Application-layer use case/service tests depend
 on these, never on a real database or another module's facade.
 """
 
-from datetime import datetime
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.clinical_notes.domain.enums import ClinicalNoteStatus, ClinicalNoteType
 from app.modules.clinical_notes.public.dto import ClinicalNoteSummaryDTO
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.prescriptions.domain.entities import Prescription, PrescriptionItem
+from app.modules.prescriptions.domain.enums import PrescriptionStatus
 from app.modules.prescriptions.domain.repositories import (
     PrescriptionItemRepository,
     PrescriptionRepository,
@@ -44,6 +47,60 @@ class FakePrescriptionRepository(PrescriptionRepository):
         matches = [p for p in self._prescriptions.values() if p.patient_id == patient_id]
         return sorted(matches, key=lambda p: p.created_at)
 
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[PrescriptionStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        prescription_date_from: date | None = None,
+        prescription_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Prescription], int]:
+        matches = [p for p in self._prescriptions.values() if p.organization_id == organization_id]
+        if statuses:
+            matches = [p for p in matches if p.status in statuses]
+        if patient_id is not None:
+            matches = [p for p in matches if p.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [p for p in matches if p.doctor_id == doctor_id]
+        if visit_id is not None:
+            matches = [p for p in matches if p.visit_id == visit_id]
+        if prescription_date_from is not None:
+            matches = [p for p in matches if p.prescription_date >= prescription_date_from]
+        if prescription_date_to is not None:
+            matches = [p for p in matches if p.prescription_date <= prescription_date_to]
+        if created_from is not None:
+            matches = [p for p in matches if p.created_at >= created_from]
+        if created_to is not None:
+            matches = [p for p in matches if p.created_at <= created_to]
+        if updated_from is not None:
+            matches = [p for p in matches if p.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [p for p in matches if p.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                p
+                for p in matches
+                if term in p.prescription_number.lower()
+                or (p.notes is not None and term in p.notes.lower())
+            ]
+        matches.sort(key=lambda p: getattr(p, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
+
     async def add(self, prescription: Prescription) -> None:
         self._prescriptions[prescription.id] = prescription
 
@@ -57,6 +114,13 @@ class FakePrescriptionItemRepository(PrescriptionItemRepository):
 
     async def list_by_prescription(self, prescription_id: UUID) -> list[PrescriptionItem]:
         matches = [i for i in self._items.values() if i.prescription_id == prescription_id]
+        return sorted(matches, key=lambda i: i.created_at)
+
+    async def list_by_prescriptions(
+        self, prescription_ids: Sequence[UUID]
+    ) -> list[PrescriptionItem]:
+        ids = set(prescription_ids)
+        matches = [i for i in self._items.values() if i.prescription_id in ids]
         return sorted(matches, key=lambda i: i.created_at)
 
     async def add(self, item: PrescriptionItem) -> None:

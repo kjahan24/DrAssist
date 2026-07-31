@@ -9,12 +9,27 @@ No repository calls `session.commit()` — that is exclusively the
 `UnitOfWork`'s responsibility.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
+from app.infrastructure.database.query_utils import (
+    apply_combined_text_search,
+    apply_date_range,
+    apply_in_filter,
+    apply_pagination,
+    apply_sort,
+    count_total,
+    exclude_soft_deleted,
+    scope_to_organization,
+)
 from app.modules.organization.domain.entities import Department, Organization, OrganizationSettings
+from app.modules.organization.domain.enums import DepartmentStatus
 from app.modules.organization.domain.repositories import (
     DepartmentRepository,
     OrganizationRepository,
@@ -93,6 +108,13 @@ class SqlAlchemyOrganizationSettingsRepository(OrganizationSettingsRepository):
 
 
 class SqlAlchemyDepartmentRepository(DepartmentRepository):
+    _SORT_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
+        "created_at": DepartmentModel.created_at,
+        "updated_at": DepartmentModel.updated_at,
+        "name": DepartmentModel.name,
+        "status": DepartmentModel.status,
+    }
+
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
@@ -117,6 +139,48 @@ class SqlAlchemyDepartmentRepository(DepartmentRepository):
         )
         models = (await self._session.execute(stmt)).scalars().all()
         return [department_to_domain(model) for model in models]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DepartmentStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Department], int]:
+        stmt = select(DepartmentModel)
+        stmt = scope_to_organization(stmt, DepartmentModel.organization_id, organization_id)
+        stmt = exclude_soft_deleted(
+            stmt, DepartmentModel.deleted_at, include_deleted=include_deleted
+        )
+        stmt = apply_in_filter(stmt, DepartmentModel.status, statuses)
+        stmt = apply_date_range(
+            stmt, DepartmentModel.created_at, start=created_from, end=created_to
+        )
+        stmt = apply_date_range(
+            stmt, DepartmentModel.updated_at, start=updated_from, end=updated_to
+        )
+        stmt = apply_combined_text_search(
+            stmt,
+            full_text_columns=[DepartmentModel.name, DepartmentModel.description],
+            partial_columns=[DepartmentModel.name],
+            term=query,
+        )
+
+        total = await count_total(self._session, stmt)
+        column = self._SORT_COLUMNS.get(sort_by, DepartmentModel.created_at)
+        stmt = apply_sort(stmt, column, sort_order)
+        stmt = apply_pagination(stmt, offset=offset, limit=limit)
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [department_to_domain(model) for model in models], total
 
     async def add(self, department: Department) -> None:
         model = await self._session.get(DepartmentModel, department.id)

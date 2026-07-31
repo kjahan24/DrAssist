@@ -6,9 +6,13 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.organization.domain.entities import Department, Organization, OrganizationSettings
+from app.modules.organization.domain.enums import DepartmentStatus
 from app.modules.organization.domain.repositories import (
     DepartmentRepository,
     OrganizationRepository,
@@ -66,6 +70,45 @@ class FakeDepartmentRepository(DepartmentRepository):
     ) -> list[Department]:
         matches = [d for d in self._departments.values() if d.organization_id == organization_id]
         return matches[offset : offset + limit]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DepartmentStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Department], int]:
+        matches = [d for d in self._departments.values() if d.organization_id == organization_id]
+        if statuses:
+            matches = [d for d in matches if d.status in statuses]
+        if created_from is not None:
+            matches = [d for d in matches if d.created_at >= created_from]
+        if created_to is not None:
+            matches = [d for d in matches if d.created_at <= created_to]
+        if updated_from is not None:
+            matches = [d for d in matches if d.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [d for d in matches if d.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                d
+                for d in matches
+                if term in d.name.lower()
+                or (d.description is not None and term in d.description.lower())
+            ]
+        matches.sort(key=lambda d: getattr(d, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, department: Department) -> None:
         self._departments[department.id] = department

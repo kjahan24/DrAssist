@@ -239,6 +239,109 @@ class TestListByPatientAndDoctor:
         assert await repo.list_by_doctor(uuid4()) == []
 
 
+class TestAppointmentSearch:
+    """Search & Filtering module — `SqlAlchemyAppointmentRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_patient_and_doctor(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor = await persist_full_chain(db_session)
+        _org2, other_patient, other_doctor = await persist_full_chain(db_session)
+        repo = SqlAlchemyAppointmentRepository(db_session)
+        appointment = Appointment.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            appointment_number=f"APT-{uuid4().hex[:12].upper()}",
+            appointment_date=date(2026, 3, 1),
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            appointment_type=AppointmentType.CONSULTATION,
+            reason_for_visit="Annual check-up",
+        )
+        other = Appointment.create(
+            organization_id=_org2.id,
+            patient_id=other_patient.id,
+            doctor_id=other_doctor.id,
+            appointment_number=f"APT-{uuid4().hex[:12].upper()}",
+            appointment_date=date(2026, 3, 1),
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            appointment_type=AppointmentType.CONSULTATION,
+        )
+        await repo.add(appointment)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, patient_id=patient.id, doctor_id=doctor.id
+        )
+
+        assert total == 1
+        assert [a.id for a in results] == [appointment.id]
+
+    async def test_query_matches_reason_for_visit_full_text(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor = await persist_full_chain(db_session)
+        repo = SqlAlchemyAppointmentRepository(db_session)
+        appointment = Appointment.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            appointment_number=f"APT-{uuid4().hex[:12].upper()}",
+            appointment_date=date(2026, 3, 1),
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            appointment_type=AppointmentType.CONSULTATION,
+            reason_for_visit="Persistent migraine headaches",
+        )
+        await repo.add(appointment)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="migraine")
+
+        assert total == 1
+        assert [a.id for a in results] == [appointment.id]
+
+    async def test_status_and_appointment_date_range_filters(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor = await persist_full_chain(db_session)
+        repo = SqlAlchemyAppointmentRepository(db_session)
+        early = Appointment.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            appointment_number=f"APT-{uuid4().hex[:12].upper()}",
+            appointment_date=date(2026, 1, 1),
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            appointment_type=AppointmentType.CONSULTATION,
+        )
+        late = Appointment.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            appointment_number=f"APT-{uuid4().hex[:12].upper()}",
+            appointment_date=date(2026, 6, 1),
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            appointment_type=AppointmentType.CONSULTATION,
+        )
+        late.confirm()
+        await repo.add(early)
+        await repo.add(late)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[AppointmentStatus.CONFIRMED],
+            appointment_date_from=date(2026, 3, 1),
+        )
+
+        assert total == 1
+        assert [a.id for a in results] == [late.id]
+
+
 class TestAppointmentNumberUniqueness:
     async def test_duplicate_appointment_number_violates_unique_index(
         self, db_session: AsyncSession

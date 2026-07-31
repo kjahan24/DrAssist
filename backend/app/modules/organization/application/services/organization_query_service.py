@@ -8,6 +8,9 @@ service-interface guidance (a formal interface earns its place at the
 `public/` boundary; this internal service doesn't need a second one).
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.organization.application.dto import (
@@ -16,6 +19,7 @@ from app.modules.organization.application.dto import (
     OrganizationSummaryDTO,
 )
 from app.modules.organization.domain.entities import Department
+from app.modules.organization.domain.enums import DepartmentStatus
 from app.modules.organization.domain.repositories import (
     DepartmentRepository,
     OrganizationRepository,
@@ -129,6 +133,40 @@ class DepartmentQueryService:
             organization_id, offset=0, limit=1000
         )
         return [_department_to_summary(department) for department in departments]
+
+    async def search_departments(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DepartmentStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[DepartmentSummaryDTO], int]:
+        """Search & Filtering module — see `DepartmentRepository.search`'s
+        docstring for filter/sort/pagination semantics."""
+        departments, total = await self._departments.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_department_to_summary(department) for department in departments], total
 
 
 def _department_to_summary(department: Department) -> DepartmentSummaryDTO:

@@ -7,9 +7,13 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.audit_log.domain.entities import AuditLog
+from app.modules.audit_log.domain.enums import AuditAction, AuditSource
 from app.modules.audit_log.domain.exceptions import AuditLogImmutableError
 from app.modules.audit_log.domain.repositories import AuditLogRepository
 from app.modules.authentication.application.dto import UserSummaryDTO
@@ -44,6 +48,53 @@ class FakeAuditLogRepository(AuditLogRepository):
     async def list_for_actor(self, actor_user_id: UUID) -> list[AuditLog]:
         matches = [a for a in self._audit_logs.values() if a.actor_user_id == actor_user_id]
         return sorted(matches, key=lambda a: a.created_at, reverse=True)
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        actions: Sequence[AuditAction] | None = None,
+        sources: Sequence[AuditSource] | None = None,
+        entity_type: str | None = None,
+        entity_id: UUID | None = None,
+        actor_user_id: UUID | None = None,
+        correlation_id: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "desc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[AuditLog], int]:
+        matches = [a for a in self._audit_logs.values() if a.organization_id == organization_id]
+        if actions:
+            matches = [a for a in matches if a.action in actions]
+        if sources:
+            matches = [a for a in matches if a.source in sources]
+        if entity_type is not None:
+            matches = [a for a in matches if a.entity_type == entity_type]
+        if entity_id is not None:
+            matches = [a for a in matches if a.entity_id == entity_id]
+        if actor_user_id is not None:
+            matches = [a for a in matches if a.actor_user_id == actor_user_id]
+        if correlation_id is not None:
+            matches = [a for a in matches if a.correlation_id == correlation_id]
+        if created_from is not None:
+            matches = [a for a in matches if a.created_at >= created_from]
+        if created_to is not None:
+            matches = [a for a in matches if a.created_at <= created_to]
+        if query:
+            term = query.strip().lower()
+
+            def _matches_query(a: AuditLog) -> bool:
+                fields = (a.entity_type, a.correlation_id, a.request_id)
+                return any(f is not None and term in f.lower() for f in fields)
+
+            matches = [a for a in matches if _matches_query(a)]
+        matches.sort(key=lambda a: getattr(a, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, audit_log: AuditLog) -> None:
         if audit_log.id in self._audit_logs:

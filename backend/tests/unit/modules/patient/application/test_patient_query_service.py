@@ -80,3 +80,33 @@ class TestGetPatientSummary:
 
     async def test_returns_none_for_unknown_patient(self, service: PatientQueryService) -> None:
         assert await service.get_patient_summary(uuid4()) is None
+
+
+class TestSearchPatients:
+    """Search & Filtering module — `PatientQueryService.search_patients`
+    only needs to prove it forwards filters to the repository and maps
+    the resulting entities to `PatientSummaryDTO`s; the repository's own
+    filter/sort/pagination *behavior* is covered by
+    `SqlAlchemyPatientRepository`'s integration tests, not here."""
+
+    async def test_maps_matching_patients_to_summaries_and_forwards_total(
+        self, service: PatientQueryService, patient_repository: FakePatientRepository
+    ) -> None:
+        organization_id = uuid4()
+        patient = _make_patient(organization_id=organization_id, patient_number="PAT-SEARCH")
+        await patient_repository.add(patient)
+        await patient_repository.add(_make_patient())  # different organization
+
+        summaries, total = await service.search_patients(organization_id=organization_id)
+
+        assert total == 1
+        assert [s.patient_id for s in summaries] == [patient.id]
+        assert summaries[0].patient_number == "PAT-SEARCH"
+
+    async def test_returns_empty_result_for_an_organization_with_no_patients(
+        self, service: PatientQueryService
+    ) -> None:
+        summaries, total = await service.search_patients(organization_id=uuid4())
+
+        assert summaries == []
+        assert total == 0

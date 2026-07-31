@@ -12,10 +12,11 @@ only read their own organization's data.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
-from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.pagination import Pagination, Sorting
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.organization.api.dependencies import (
     get_create_department_use_case,
@@ -46,9 +47,12 @@ from app.modules.organization.application.use_cases.create_organization import C
 from app.modules.organization.application.use_cases.update_organization_settings import (
     UpdateOrganizationSettings,
 )
+from app.modules.organization.domain.enums import DepartmentStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
+
+_DEPARTMENT_SEARCH_SORT_FIELDS = frozenset({"created_at", "updated_at", "name", "status"})
 
 OrganizationQS = Annotated[OrganizationQueryService, Depends(get_organization_query_service)]
 DepartmentQS = Annotated[DepartmentQueryService, Depends(get_department_query_service)]
@@ -148,14 +152,41 @@ async def list_departments(
     query_service: DepartmentQS,
     pagination: Pagination,
     sorting: Sorting,
+    filters: SearchFilters,
     current_user: CurrentUser,
+    status_filter: Annotated[list[DepartmentStatus] | None, Query(alias="status")] = None,
 ) -> PaginatedResponse[DepartmentResponse]:
+    """Search & Filtering module: this endpoint's shape (route, response,
+    `offset`/`limit`/`sort_by`/`sort_order` params) is unchanged — it now
+    also accepts `q`/`status`/`created_from`/`created_to`/`updated_from`/
+    `updated_to`/`include_deleted`, and resolves them with a real SQL
+    `WHERE`/`ORDER BY`/`OFFSET`/`LIMIT` query
+    (`DepartmentQueryService.search_departments`) instead of fetching up
+    to 1000 rows and paginating them in memory — see
+    `DepartmentRepository.search`'s docstring for why "Organizations"
+    search means searching departments in this single-tenant-per-request
+    app."""
     ensure_same_organization(organization_id, current_user)
-    summaries = await query_service.list_departments_for_organization(organization_id)
+    sort_field = resolve_sort_field(
+        sorting.sort_by,
+        allowed_sort_fields=_DEPARTMENT_SEARCH_SORT_FIELDS,
+        default_field="created_at",
+    )
+    summaries, total = await query_service.search_departments(
+        organization_id=organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
     items = [DepartmentResponse.model_validate(s) for s in summaries]
-    return paginate_and_sort(
-        items,
-        pagination=pagination,
-        sorting=sorting,
-        allowed_sort_fields=frozenset({"name", "status"}),
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
     )

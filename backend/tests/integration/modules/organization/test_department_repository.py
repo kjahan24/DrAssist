@@ -83,6 +83,47 @@ class TestDepartmentRoundTrip:
         assert reloaded.status is DepartmentStatus.INACTIVE
 
 
+class TestDepartmentSearch:
+    """Search & Filtering module — `SqlAlchemyDepartmentRepository.search`."""
+
+    async def test_scopes_to_organization_and_matches_query(self, db_session: AsyncSession) -> None:
+        org_a = await _persist_organization(db_session)
+        org_b = await _persist_organization(db_session)
+        repo = SqlAlchemyDepartmentRepository(db_session)
+        cardiology = Department.create(organization_id=org_a.id, name="Cardiology")
+        oncology_other_org = Department.create(organization_id=org_b.id, name="Cardiology Annex")
+        await repo.add(cardiology)
+        await repo.add(oncology_other_org)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=org_a.id, query="cardio")
+
+        assert total == 1
+        assert [d.id for d in results] == [cardiology.id]
+
+    async def test_status_filter_and_pagination(self, db_session: AsyncSession) -> None:
+        organization = await _persist_organization(db_session)
+        repo = SqlAlchemyDepartmentRepository(db_session)
+        active_one = Department.create(organization_id=organization.id, name="Active One")
+        active_two = Department.create(organization_id=organization.id, name="Active Two")
+        inactive = Department.create(organization_id=organization.id, name="Inactive Dept")
+        inactive.deactivate()
+        for dept in (active_one, active_two, inactive):
+            await repo.add(dept)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[DepartmentStatus.ACTIVE],
+            sort_by="name",
+            sort_order="asc",
+            limit=1,
+        )
+
+        assert total == 2
+        assert [d.id for d in results] == [active_one.id]
+
+
 class TestDepartmentRequiresValidOrganization:
     async def test_nonexistent_organization_id_violates_fk_constraint(
         self, db_session: AsyncSession

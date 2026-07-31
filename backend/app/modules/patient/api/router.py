@@ -13,10 +13,11 @@ list call and doesn't want to re-fetch the whole patient's list).
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.patient.api.dependencies import (
     get_add_emergency_contact_use_case,
@@ -81,9 +82,14 @@ from app.modules.patient.application.use_cases.record_patient_allergy import (
     RecordPatientAllergy,
 )
 from app.modules.patient.application.use_cases.register_patient import RegisterPatient
+from app.modules.patient.domain.enums import PatientStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
+
+_SEARCH_SORT_FIELDS = frozenset(
+    {"created_at", "updated_at", "first_name", "last_name", "patient_number", "status"}
+)
 
 PatientQS = Annotated[PatientQueryService, Depends(get_patient_query_service)]
 ContactQS = Annotated[PatientContactQueryService, Depends(get_patient_contact_query_service)]
@@ -144,6 +150,42 @@ async def get_patient(
     response = PatientResponse.model_validate(summary)
     ensure_same_organization(response.organization_id, current_user)
     return response
+
+
+@router.get("", response_model=PaginatedResponse[PatientResponse])
+async def search_patients(
+    query_service: PatientQS,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[PatientStatus] | None, Query(alias="status")] = None,
+) -> PaginatedResponse[PatientResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over patients — see
+    `PatientRepository.search`'s docstring for how `filters.q` combines
+    full-text and partial matching."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SEARCH_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search_patients(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [PatientResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 # --- Contacts ------------------------------------------------------------

@@ -1,0 +1,2 @@
+mypy: can't read file 'app': No such file or directory
+MYPY=2

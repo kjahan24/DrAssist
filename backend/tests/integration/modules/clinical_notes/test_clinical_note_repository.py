@@ -273,6 +273,104 @@ class TestNoteNumberUniqueness:
         await db_session.rollback()
 
 
+class TestClinicalNoteSearch:
+    """Search & Filtering module — `SqlAlchemyClinicalNoteRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_visit(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit = await _persist_full_chain(db_session)
+        _org2, other_patient, other_doctor, other_visit = await _persist_full_chain(db_session)
+        repo = SqlAlchemyClinicalNoteRepository(db_session)
+        note = ClinicalNote.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            note_number=f"CN-{uuid4().hex[:12].upper()}",
+            note_type=ClinicalNoteType.INITIAL,
+            encounter_datetime=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            assessment_summary="Likely viral pharyngitis",
+        )
+        other = ClinicalNote.create(
+            organization_id=_org2.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_id=other_doctor.id,
+            note_number=f"CN-{uuid4().hex[:12].upper()}",
+            note_type=ClinicalNoteType.INITIAL,
+            encounter_datetime=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        )
+        await repo.add(note)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, visit_id=visit.id)
+
+        assert total == 1
+        assert [n.id for n in results] == [note.id]
+
+    async def test_query_matches_assessment_summary_full_text(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit = await _persist_full_chain(db_session)
+        repo = SqlAlchemyClinicalNoteRepository(db_session)
+        note = ClinicalNote.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            note_number=f"CN-{uuid4().hex[:12].upper()}",
+            note_type=ClinicalNoteType.INITIAL,
+            encounter_datetime=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            assessment_summary="Likely viral pharyngitis",
+        )
+        await repo.add(note)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="pharyngitis")
+
+        assert total == 1
+        assert [n.id for n in results] == [note.id]
+
+    async def test_status_and_encounter_datetime_range_filters(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit = await _persist_full_chain(db_session)
+        repo = SqlAlchemyClinicalNoteRepository(db_session)
+        draft = ClinicalNote.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            note_number=f"CN-{uuid4().hex[:12].upper()}",
+            note_type=ClinicalNoteType.INITIAL,
+            encounter_datetime=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        )
+        reviewed = ClinicalNote.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            note_number=f"CN-{uuid4().hex[:12].upper()}",
+            note_type=ClinicalNoteType.INITIAL,
+            encounter_datetime=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+        )
+        reviewed.submit_for_review()
+        await repo.add(draft)
+        await repo.add(reviewed)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[ClinicalNoteStatus.IN_REVIEW],
+            encounter_from=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+
+        assert total == 1
+        assert [n.id for n in results] == [reviewed.id]
+
+
 class TestClinicalNoteRequiresValidReferences:
     async def test_nonexistent_patient_id_violates_fk_constraint(
         self, db_session: AsyncSession

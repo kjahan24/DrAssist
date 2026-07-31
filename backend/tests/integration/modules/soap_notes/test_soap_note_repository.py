@@ -158,6 +158,64 @@ class TestOneToOneUniqueness:
         await db_session.rollback()
 
 
+class TestSOAPNoteSearch:
+    """Search & Filtering module — `SqlAlchemySOAPNoteRepository.search`.
+
+    The module's first collection-listing capability — previously only
+    single-record lookup by `clinical_note_id` existed."""
+
+    async def test_scopes_to_organization_and_filters_by_patient(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        _org2, other_patient, other_doctor, other_visit, other_note = await persist_full_chain(
+            db_session
+        )
+        repo = SqlAlchemySOAPNoteRepository(db_session)
+        note = SOAPNote.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            assessment="Likely viral pharyngitis",
+        )
+        other = SOAPNote.create(
+            organization_id=_org2.id,
+            clinical_note_id=other_note.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_id=other_doctor.id,
+        )
+        await repo.add(note)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, patient_id=patient.id)
+
+        assert total == 1
+        assert [n.id for n in results] == [note.id]
+
+    async def test_query_matches_free_text_fields(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        repo = SqlAlchemySOAPNoteRepository(db_session)
+        note = SOAPNote.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            assessment="Likely viral pharyngitis",
+        )
+        await repo.add(note)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="pharyngitis")
+
+        assert total == 1
+        assert [n.id for n in results] == [note.id]
+
+
 class TestSOAPNoteRequiresValidReferences:
     async def test_nonexistent_organization_id_violates_fk_constraint(
         self, db_session: AsyncSession

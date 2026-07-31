@@ -24,6 +24,9 @@ block edits, per that rule); `False` for a nonexistent note, matching how
 raising.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.clinical_notes.application.dto import ClinicalNoteSummaryDTO
@@ -60,6 +63,50 @@ class ClinicalNoteQueryService:
     ) -> list[ClinicalNoteSummaryDTO]:
         notes = await self._clinical_notes.list_by_patient(patient_id)
         return [_to_summary(note) for note in notes]
+
+    async def search_clinical_notes(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[ClinicalNoteStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        encounter_from: datetime | None = None,
+        encounter_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "encounter_datetime",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[ClinicalNoteSummaryDTO], int]:
+        """Search & Filtering module — see `ClinicalNoteRepository.search`'s
+        docstring for filter/sort/pagination semantics."""
+        notes, total = await self._clinical_notes.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            visit_id=visit_id,
+            encounter_from=encounter_from,
+            encounter_to=encounter_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_to_summary(note) for note in notes], total
 
 
 def _to_summary(note: ClinicalNote) -> ClinicalNoteSummaryDTO:

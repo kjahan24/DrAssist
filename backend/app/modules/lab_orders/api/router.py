@@ -7,13 +7,15 @@ clinical note or patient are separate collection endpoints — matching
 own shape.
 """
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.lab_orders.api.dependencies import (
     get_add_lab_order_item_use_case,
@@ -49,6 +51,7 @@ from app.modules.lab_orders.application.use_cases.mark_lab_order_collected impor
 )
 from app.modules.lab_orders.application.use_cases.place_lab_order import PlaceLabOrder
 from app.modules.lab_orders.application.use_cases.update_lab_order import UpdateLabOrder
+from app.modules.lab_orders.domain.enums import LabOrderStatus, Priority
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
@@ -95,6 +98,57 @@ async def get_lab_order(
     lab_order_id: UUID, query_service: QueryService, current_user: CurrentUser
 ) -> LabOrderResponse:
     return await _get_response(lab_order_id, query_service, current_user)
+
+
+@router.get("", response_model=PaginatedResponse[LabOrderResponse])
+async def search_lab_orders(
+    query_service: QueryService,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[LabOrderStatus] | None, Query(alias="status")] = None,
+    priority: Annotated[list[Priority] | None, Query()] = None,
+    patient_id: UUID | None = None,
+    doctor_id: UUID | None = None,
+    visit_id: UUID | None = None,
+    clinical_note_id: UUID | None = None,
+    ordered_from: datetime | None = None,
+    ordered_to: datetime | None = None,
+) -> PaginatedResponse[LabOrderResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over lab orders — see
+    `LabOrderRepository.search`'s docstring for how `filters.q` is
+    matched, and `LabOrderQueryService.search_lab_orders`'s docstring for
+    how embedded items are batch-loaded to avoid N+1."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="ordered_at"
+    )
+    summaries, total = await query_service.search_lab_orders(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        priorities=priority,
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        visit_id=visit_id,
+        clinical_note_id=clinical_note_id,
+        ordered_from=ordered_from,
+        ordered_to=ordered_to,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [LabOrderResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.get("/clinical-note/{clinical_note_id}", response_model=PaginatedResponse[LabOrderResponse])

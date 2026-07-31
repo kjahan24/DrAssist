@@ -25,6 +25,10 @@ future Medication History module can assemble a patient's full
 prescribing history across visits without this module needing to change.
 """
 
+from collections import defaultdict
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.prescriptions.application.dto import (
@@ -32,6 +36,7 @@ from app.modules.prescriptions.application.dto import (
     PrescriptionSummaryDTO,
 )
 from app.modules.prescriptions.domain.entities import Prescription, PrescriptionItem
+from app.modules.prescriptions.domain.enums import PrescriptionStatus
 from app.modules.prescriptions.domain.repositories import (
     PrescriptionItemRepository,
     PrescriptionRepository,
@@ -78,21 +83,85 @@ class PrescriptionQueryService:
         prescriptions = await self._prescriptions.list_by_patient(patient_id)
         return [await self._to_summary(prescription) for prescription in prescriptions]
 
+    async def search_prescriptions(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[PrescriptionStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        prescription_date_from: date | None = None,
+        prescription_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[PrescriptionSummaryDTO], int]:
+        """Search & Filtering module — see `PrescriptionRepository.search`'s
+        docstring for filter/sort/pagination semantics.
+
+        Unlike `_to_summary` (one `list_by_prescription` query per
+        prescription — fine for a single record or a small, already-known
+        patient history), this batches all items for the whole result
+        page into a single `list_by_prescriptions` query, then groups them
+        in Python — the N+1-avoidance this task's Performance section
+        requires.
+        """
+        prescriptions, total = await self._prescriptions.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            visit_id=visit_id,
+            prescription_date_from=prescription_date_from,
+            prescription_date_to=prescription_date_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        items_by_prescription: dict[UUID, list[PrescriptionItem]] = defaultdict(list)
+        for item in await self._items.list_by_prescriptions([p.id for p in prescriptions]):
+            items_by_prescription[item.prescription_id].append(item)
+        return [
+            _build_summary(prescription, items_by_prescription[prescription.id])
+            for prescription in prescriptions
+        ], total
+
     async def _to_summary(self, prescription: Prescription) -> PrescriptionSummaryDTO:
         items = await self._items.list_by_prescription(prescription.id)
-        return PrescriptionSummaryDTO(
-            prescription_id=prescription.id,
-            organization_id=prescription.organization_id,
-            clinical_note_id=prescription.clinical_note_id,
-            patient_id=prescription.patient_id,
-            visit_id=prescription.visit_id,
-            doctor_id=prescription.doctor_id,
-            prescription_number=prescription.prescription_number,
-            prescription_date=prescription.prescription_date,
-            status=prescription.status,
-            notes=prescription.notes,
-            items=[_to_item_summary(item) for item in items],
-        )
+        return _build_summary(prescription, items)
+
+
+def _build_summary(
+    prescription: Prescription, items: Sequence[PrescriptionItem]
+) -> PrescriptionSummaryDTO:
+    return PrescriptionSummaryDTO(
+        prescription_id=prescription.id,
+        organization_id=prescription.organization_id,
+        clinical_note_id=prescription.clinical_note_id,
+        patient_id=prescription.patient_id,
+        visit_id=prescription.visit_id,
+        doctor_id=prescription.doctor_id,
+        prescription_number=prescription.prescription_number,
+        prescription_date=prescription.prescription_date,
+        status=prescription.status,
+        notes=prescription.notes,
+        items=[_to_item_summary(item) for item in items],
+    )
 
 
 def _to_item_summary(item: PrescriptionItem) -> PrescriptionItemSummaryDTO:

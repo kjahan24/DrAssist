@@ -12,10 +12,11 @@ and each get `POST /doctors/{doctor_id}/<sub-resource>` (add) plus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.doctor.api.dependencies import (
     get_add_doctor_license_use_case,
@@ -58,9 +59,14 @@ from app.modules.doctor.application.use_cases.add_doctor_specialization import (
     AddDoctorSpecialization,
 )
 from app.modules.doctor.application.use_cases.onboard_doctor import OnboardDoctor
+from app.modules.doctor.domain.enums import DoctorStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
+
+_SEARCH_SORT_FIELDS = frozenset(
+    {"created_at", "updated_at", "employee_id", "status", "joining_date"}
+)
 
 DoctorQS = Annotated[DoctorQueryService, Depends(get_doctor_query_service)]
 ProfileQS = Annotated[DoctorProfileQueryService, Depends(get_doctor_profile_query_service)]
@@ -112,6 +118,42 @@ async def get_doctor(
     response = DoctorResponse.model_validate(summary)
     ensure_same_organization(response.organization_id, current_user)
     return response
+
+
+@router.get("", response_model=PaginatedResponse[DoctorResponse])
+async def search_doctors(
+    query_service: DoctorQS,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[DoctorStatus] | None, Query(alias="status")] = None,
+) -> PaginatedResponse[DoctorResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over doctors — see
+    `DoctorRepository.search`'s docstring for how `filters.q` combines
+    full-text (profile name) and partial (employee id) matching."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SEARCH_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search_doctors(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [DoctorResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 # --- Profile ---------------------------------------------------------------

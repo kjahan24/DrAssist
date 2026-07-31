@@ -22,11 +22,14 @@ as the lookup a future FHIR resource mapper would use to find "the
 `PatientHistory` row for this source record."
 """
 
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.patient_history.application.dto import PatientHistorySummaryDTO
 from app.modules.patient_history.domain.entities import PatientHistory
-from app.modules.patient_history.domain.enums import ReferenceType
+from app.modules.patient_history.domain.enums import HistoryType, ReferenceType
 from app.modules.patient_history.domain.repositories import PatientHistoryRepository
 
 
@@ -60,6 +63,55 @@ class PatientHistoryQueryService:
     ) -> list[PatientHistorySummaryDTO]:
         history = await self._history.list_by_visit(visit_id)
         return [_to_summary(item) for item in history]
+
+    async def search_patient_history(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        history_types: Sequence[HistoryType] | None = None,
+        reference_types: Sequence[ReferenceType] | None = None,
+        patient_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        doctor_review_id: UUID | None = None,
+        reference_id: UUID | None = None,
+        encounter_date_from: date | None = None,
+        encounter_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "encounter_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[PatientHistorySummaryDTO], int]:
+        """Search & Filtering module — see
+        `PatientHistoryRepository.search`'s docstring for filter/sort/
+        pagination semantics."""
+        history, total = await self._history.search(
+            organization_id=organization_id,
+            query=query,
+            history_types=history_types,
+            reference_types=reference_types,
+            patient_id=patient_id,
+            visit_id=visit_id,
+            doctor_review_id=doctor_review_id,
+            reference_id=reference_id,
+            encounter_date_from=encounter_date_from,
+            encounter_date_to=encounter_date_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_to_summary(item) for item in history], total
 
 
 def _to_summary(history: PatientHistory) -> PatientHistorySummaryDTO:

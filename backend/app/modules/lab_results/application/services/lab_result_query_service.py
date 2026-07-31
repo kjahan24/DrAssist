@@ -26,6 +26,10 @@ Messages, LIS, Patient Timeline) all need the actual result data, not
 just "a result exists".
 """
 
+from collections import defaultdict
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.lab_results.application.dto import LabResultItemSummaryDTO, LabResultSummaryDTO
@@ -77,22 +81,79 @@ class LabResultQueryService:
         lab_results = await self._lab_results.list_by_patient(patient_id)
         return [await self._to_summary(lab_result) for lab_result in lab_results]
 
+    async def search_lab_results(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[LabResultStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        lab_order_id: UUID | None = None,
+        reported_from: datetime | None = None,
+        reported_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "reported_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[LabResultSummaryDTO], int]:
+        """Search & Filtering module — see `LabResultRepository.search`'s
+        docstring for filter/sort/pagination semantics, and
+        `PrescriptionQueryService.search_prescriptions`'s docstring for
+        the identical batch-item N+1-avoidance shape used here."""
+        lab_results, total = await self._lab_results.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            visit_id=visit_id,
+            lab_order_id=lab_order_id,
+            reported_from=reported_from,
+            reported_to=reported_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        items_by_result: dict[UUID, list[LabResultItem]] = defaultdict(list)
+        for item in await self._items.list_by_lab_results([r.id for r in lab_results]):
+            items_by_result[item.lab_result_id].append(item)
+        return [
+            _build_summary(lab_result, items_by_result[lab_result.id]) for lab_result in lab_results
+        ], total
+
     async def _to_summary(self, lab_result: LabResult) -> LabResultSummaryDTO:
         items = await self._items.list_by_lab_result(lab_result.id)
-        return LabResultSummaryDTO(
-            lab_result_id=lab_result.id,
-            organization_id=lab_result.organization_id,
-            lab_order_id=lab_result.lab_order_id,
-            patient_id=lab_result.patient_id,
-            visit_id=lab_result.visit_id,
-            doctor_id=lab_result.doctor_id,
-            result_number=lab_result.result_number,
-            reported_at=lab_result.reported_at,
-            status=lab_result.status,
-            laboratory_name=lab_result.laboratory_name,
-            comments=lab_result.comments,
-            items=[_to_item_summary(item) for item in items],
-        )
+        return _build_summary(lab_result, items)
+
+
+def _build_summary(lab_result: LabResult, items: Sequence[LabResultItem]) -> LabResultSummaryDTO:
+    return LabResultSummaryDTO(
+        lab_result_id=lab_result.id,
+        organization_id=lab_result.organization_id,
+        lab_order_id=lab_result.lab_order_id,
+        patient_id=lab_result.patient_id,
+        visit_id=lab_result.visit_id,
+        doctor_id=lab_result.doctor_id,
+        result_number=lab_result.result_number,
+        reported_at=lab_result.reported_at,
+        status=lab_result.status,
+        laboratory_name=lab_result.laboratory_name,
+        comments=lab_result.comments,
+        items=[_to_item_summary(item) for item in items],
+    )
 
 
 def _to_item_summary(item: LabResultItem) -> LabResultItemSummaryDTO:

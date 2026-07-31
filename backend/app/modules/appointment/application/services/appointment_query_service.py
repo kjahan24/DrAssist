@@ -14,6 +14,9 @@ that is squarely Schedule/Availability/Calendar territory, explicitly out
 of scope for this task — see `container.py`'s scope note.
 """
 
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.appointment.application.dto import AppointmentSummaryDTO
@@ -52,6 +55,48 @@ class AppointmentQueryService:
     async def list_appointments_for_doctor(self, doctor_id: UUID) -> list[AppointmentSummaryDTO]:
         appointments = await self._appointments.list_by_doctor(doctor_id)
         return [_to_summary(appointment) for appointment in appointments]
+
+    async def search_appointments(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[AppointmentStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        appointment_date_from: date | None = None,
+        appointment_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "appointment_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[AppointmentSummaryDTO], int]:
+        """Search & Filtering module — see `AppointmentRepository.search`'s
+        docstring for filter/sort/pagination semantics."""
+        appointments, total = await self._appointments.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            appointment_date_from=appointment_date_from,
+            appointment_date_to=appointment_date_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_to_summary(appointment) for appointment in appointments], total
 
 
 def _to_summary(appointment: Appointment) -> AppointmentSummaryDTO:

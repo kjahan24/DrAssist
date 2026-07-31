@@ -141,6 +141,118 @@ class TestDoctorLookups:
         assert [d.id for d in doctors_for_a] == [doctor_a.id]
 
 
+class TestDoctorSearch:
+    """Search & Filtering module — `SqlAlchemyDoctorRepository.search`."""
+
+    async def test_scopes_to_organization(self, db_session: AsyncSession) -> None:
+        org_a = await persist_organization(db_session)
+        org_b = await persist_organization(db_session)
+        user_a = await persist_user(db_session, organization_id=org_a.id)
+        user_b = await persist_user(db_session, organization_id=org_b.id)
+        repo = SqlAlchemyDoctorRepository(db_session)
+        doctor_a = Doctor.create(
+            organization_id=org_a.id,
+            user_id=user_a.id,
+            employee_id="EMP-SEARCH-A",
+            joining_date=date(2026, 1, 1),
+        )
+        doctor_b = Doctor.create(
+            organization_id=org_b.id,
+            user_id=user_b.id,
+            employee_id="EMP-SEARCH-B",
+            joining_date=date(2026, 1, 1),
+        )
+        await repo.add(doctor_a)
+        await repo.add(doctor_b)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=org_a.id)
+
+        assert total == 1
+        assert [d.id for d in results] == [doctor_a.id]
+
+    async def test_query_matches_employee_id_partially(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        user = await persist_user(db_session, organization_id=organization.id)
+        repo = SqlAlchemyDoctorRepository(db_session)
+        doctor = Doctor.create(
+            organization_id=organization.id,
+            user_id=user.id,
+            employee_id="EMP-UNIQUE-042",
+            joining_date=date(2026, 1, 1),
+        )
+        await repo.add(doctor)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="UNIQUE-042")
+
+        assert total == 1
+        assert [d.id for d in results] == [doctor.id]
+
+    async def test_status_filter(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        active_user = await persist_user(db_session, organization_id=organization.id)
+        suspended_user = await persist_user(db_session, organization_id=organization.id)
+        repo = SqlAlchemyDoctorRepository(db_session)
+        active = Doctor.create(
+            organization_id=organization.id,
+            user_id=active_user.id,
+            employee_id="EMP-ACTIVE",
+            joining_date=date(2026, 1, 1),
+        )
+        suspended = Doctor.create(
+            organization_id=organization.id,
+            user_id=suspended_user.id,
+            employee_id="EMP-SUSPENDED",
+            joining_date=date(2026, 1, 1),
+        )
+        suspended.suspend()
+        await repo.add(active)
+        await repo.add(suspended)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, statuses=[DoctorStatus.SUSPENDED]
+        )
+
+        assert total == 1
+        assert [d.id for d in results] == [suspended.id]
+
+    async def test_pagination_and_sort(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        repo = SqlAlchemyDoctorRepository(db_session)
+        for suffix in ("A", "B", "C"):
+            user = await persist_user(db_session, organization_id=organization.id)
+            await repo.add(
+                Doctor.create(
+                    organization_id=organization.id,
+                    user_id=user.id,
+                    employee_id=f"EMP-PAGE-{suffix}",
+                    joining_date=date(2026, 1, 1),
+                )
+            )
+        await db_session.commit()
+
+        first_page, total = await repo.search(
+            organization_id=organization.id,
+            sort_by="employee_id",
+            sort_order="asc",
+            offset=0,
+            limit=2,
+        )
+        second_page, _ = await repo.search(
+            organization_id=organization.id,
+            sort_by="employee_id",
+            sort_order="asc",
+            offset=2,
+            limit=2,
+        )
+
+        assert total == 3
+        assert [d.employee_id for d in first_page] == ["EMP-PAGE-A", "EMP-PAGE-B"]
+        assert [d.employee_id for d in second_page] == ["EMP-PAGE-C"]
+
+
 class TestDoctorRequiresValidReferences:
     async def test_nonexistent_organization_id_violates_fk_constraint(
         self, db_session: AsyncSession

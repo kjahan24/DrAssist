@@ -19,6 +19,9 @@ task. Purely additive: every existing consumer of `VisitQueryPort`
 already knew about.
 """
 
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.visit.application.dto import VisitSummaryDTO
@@ -52,6 +55,49 @@ class PatientVisitQueryService:
     async def list_visits_for_patient(self, patient_id: UUID) -> list[VisitSummaryDTO]:
         visits = await self._visits.list_by_patient(patient_id)
         return [_to_summary(visit) for visit in visits]
+
+    async def search_visits(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[VisitStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_date_from: date | None = None,
+        visit_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "visit_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[VisitSummaryDTO], int]:
+        """Search & Filtering module — see
+        `PatientVisitRepository.search`'s docstring for filter/sort/
+        pagination semantics."""
+        visits, total = await self._visits.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            visit_date_from=visit_date_from,
+            visit_date_to=visit_date_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_to_summary(visit) for visit in visits], total
 
 
 def _to_summary(visit: PatientVisit) -> VisitSummaryDTO:

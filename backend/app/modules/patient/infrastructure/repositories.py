@@ -9,11 +9,25 @@ No repository calls `session.commit()` — that is exclusively the
 `UnitOfWork`'s responsibility.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
+from app.infrastructure.database.query_utils import (
+    apply_combined_text_search,
+    apply_date_range,
+    apply_in_filter,
+    apply_pagination,
+    apply_sort,
+    count_total,
+    exclude_soft_deleted,
+    scope_to_organization,
+)
 from app.modules.patient.domain.entities import (
     EmergencyContact,
     Insurance,
@@ -23,7 +37,12 @@ from app.modules.patient.domain.entities import (
     PatientMedicalCondition,
     PatientMedication,
 )
-from app.modules.patient.domain.enums import AllergyStatus, ConditionStatus, ContactType
+from app.modules.patient.domain.enums import (
+    AllergyStatus,
+    ConditionStatus,
+    ContactType,
+    PatientStatus,
+)
 from app.modules.patient.domain.repositories import (
     EmergencyContactRepository,
     InsuranceRepository,
@@ -61,6 +80,15 @@ from app.modules.patient.infrastructure.models import (
 
 
 class SqlAlchemyPatientRepository(PatientRepository):
+    _SORT_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
+        "created_at": PatientModel.created_at,
+        "updated_at": PatientModel.updated_at,
+        "first_name": PatientModel.first_name,
+        "last_name": PatientModel.last_name,
+        "patient_number": PatientModel.patient_number,
+        "status": PatientModel.status,
+    }
+
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
@@ -96,6 +124,46 @@ class SqlAlchemyPatientRepository(PatientRepository):
         )
         models = (await self._session.execute(stmt)).scalars().all()
         return [patient_to_domain(model) for model in models]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[PatientStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Patient], int]:
+        stmt = select(PatientModel)
+        stmt = scope_to_organization(stmt, PatientModel.organization_id, organization_id)
+        stmt = exclude_soft_deleted(stmt, PatientModel.deleted_at, include_deleted=include_deleted)
+        stmt = apply_in_filter(stmt, PatientModel.status, statuses)
+        stmt = apply_date_range(stmt, PatientModel.created_at, start=created_from, end=created_to)
+        stmt = apply_date_range(stmt, PatientModel.updated_at, start=updated_from, end=updated_to)
+        stmt = apply_combined_text_search(
+            stmt,
+            full_text_columns=[
+                PatientModel.first_name,
+                PatientModel.last_name,
+                PatientModel.preferred_name,
+            ],
+            partial_columns=[PatientModel.patient_number],
+            term=query,
+        )
+
+        total = await count_total(self._session, stmt)
+        column = self._SORT_COLUMNS.get(sort_by, PatientModel.created_at)
+        stmt = apply_sort(stmt, column, sort_order)
+        stmt = apply_pagination(stmt, offset=offset, limit=limit)
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [patient_to_domain(model) for model in models], total
 
     async def add(self, patient: Patient) -> None:
         model = await self._session.get(PatientModel, patient.id)

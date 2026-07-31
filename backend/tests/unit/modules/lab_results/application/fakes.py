@@ -6,13 +6,16 @@ mocks as the default"). Application-layer use case/service tests depend
 on these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.lab_orders.domain.enums import LabOrderStatus, Priority
 from app.modules.lab_orders.public.dto import LabOrderItemSummaryDTO, LabOrderSummaryDTO
 from app.modules.lab_orders.public.interfaces import LabOrderQueryPort
 from app.modules.lab_results.domain.entities import LabResult, LabResultItem
+from app.modules.lab_results.domain.enums import LabResultStatus
 from app.modules.lab_results.domain.repositories import (
     LabResultItemRepository,
     LabResultRepository,
@@ -44,6 +47,64 @@ class FakeLabResultRepository(LabResultRepository):
         matches = [r for r in self._lab_results.values() if r.patient_id == patient_id]
         return sorted(matches, key=lambda r: r.created_at)
 
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[LabResultStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        lab_order_id: UUID | None = None,
+        reported_from: datetime | None = None,
+        reported_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "reported_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[LabResult], int]:
+        matches = [r for r in self._lab_results.values() if r.organization_id == organization_id]
+        if statuses:
+            matches = [r for r in matches if r.status in statuses]
+        if patient_id is not None:
+            matches = [r for r in matches if r.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [r for r in matches if r.doctor_id == doctor_id]
+        if visit_id is not None:
+            matches = [r for r in matches if r.visit_id == visit_id]
+        if lab_order_id is not None:
+            matches = [r for r in matches if r.lab_order_id == lab_order_id]
+        if reported_from is not None:
+            matches = [r for r in matches if r.reported_at >= reported_from]
+        if reported_to is not None:
+            matches = [r for r in matches if r.reported_at <= reported_to]
+        if created_from is not None:
+            matches = [r for r in matches if r.created_at >= created_from]
+        if created_to is not None:
+            matches = [r for r in matches if r.created_at <= created_to]
+        if updated_from is not None:
+            matches = [r for r in matches if r.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [r for r in matches if r.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                r
+                for r in matches
+                if term in r.result_number.lower()
+                or (r.laboratory_name is not None and term in r.laboratory_name.lower())
+                or (r.comments is not None and term in r.comments.lower())
+            ]
+        matches.sort(key=lambda r: getattr(r, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
+
     async def add(self, lab_result: LabResult) -> None:
         self._lab_results[lab_result.id] = lab_result
 
@@ -57,6 +118,11 @@ class FakeLabResultItemRepository(LabResultItemRepository):
 
     async def list_by_lab_result(self, lab_result_id: UUID) -> list[LabResultItem]:
         matches = [i for i in self._items.values() if i.lab_result_id == lab_result_id]
+        return sorted(matches, key=lambda i: i.created_at)
+
+    async def list_by_lab_results(self, lab_result_ids: Sequence[UUID]) -> list[LabResultItem]:
+        ids = set(lab_result_ids)
+        matches = [i for i in self._items.values() if i.lab_result_id in ids]
         return sorted(matches, key=lambda i: i.created_at)
 
     async def add(self, item: LabResultItem) -> None:

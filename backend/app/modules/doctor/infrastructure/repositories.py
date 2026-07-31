@@ -9,11 +9,25 @@ No repository calls `session.commit()` — that is exclusively the
 `UnitOfWork`'s responsibility.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
+from app.infrastructure.database.query_utils import (
+    apply_combined_text_search,
+    apply_date_range,
+    apply_in_filter,
+    apply_pagination,
+    apply_sort,
+    count_total,
+    exclude_soft_deleted,
+    scope_to_organization,
+)
 from app.modules.doctor.domain.entities import (
     Doctor,
     DoctorLicense,
@@ -21,7 +35,7 @@ from app.modules.doctor.domain.entities import (
     DoctorSchedule,
     DoctorSpecialization,
 )
-from app.modules.doctor.domain.enums import DayOfWeek
+from app.modules.doctor.domain.enums import DayOfWeek, DoctorStatus
 from app.modules.doctor.domain.repositories import (
     DoctorLicenseRepository,
     DoctorProfileRepository,
@@ -51,6 +65,14 @@ from app.modules.doctor.infrastructure.models import (
 
 
 class SqlAlchemyDoctorRepository(DoctorRepository):
+    _SORT_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
+        "created_at": DoctorModel.created_at,
+        "updated_at": DoctorModel.updated_at,
+        "employee_id": DoctorModel.employee_id,
+        "status": DoctorModel.status,
+        "joining_date": DoctorModel.joining_date,
+    }
+
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
@@ -91,6 +113,44 @@ class SqlAlchemyDoctorRepository(DoctorRepository):
         )
         models = (await self._session.execute(stmt)).scalars().all()
         return [doctor_to_domain(model) for model in models]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DoctorStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Doctor], int]:
+        stmt = select(DoctorModel).outerjoin(
+            DoctorProfileModel, DoctorProfileModel.doctor_id == DoctorModel.id
+        )
+        stmt = scope_to_organization(stmt, DoctorModel.organization_id, organization_id)
+        stmt = exclude_soft_deleted(stmt, DoctorModel.deleted_at, include_deleted=include_deleted)
+        stmt = apply_in_filter(stmt, DoctorModel.status, statuses)
+        stmt = apply_date_range(stmt, DoctorModel.created_at, start=created_from, end=created_to)
+        stmt = apply_date_range(stmt, DoctorModel.updated_at, start=updated_from, end=updated_to)
+        stmt = apply_combined_text_search(
+            stmt,
+            full_text_columns=[DoctorProfileModel.full_name],
+            partial_columns=[DoctorModel.employee_id],
+            term=query,
+        )
+
+        total = await count_total(self._session, stmt)
+        column = self._SORT_COLUMNS.get(sort_by, DoctorModel.created_at)
+        stmt = apply_sort(stmt, column, sort_order)
+        stmt = apply_pagination(stmt, offset=offset, limit=limit)
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [doctor_to_domain(model) for model in models], total
 
     async def add(self, doctor: Doctor) -> None:
         model = await self._session.get(DoctorModel, doctor.id)

@@ -6,6 +6,9 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.authentication.public.dto import UserSummaryDTO
@@ -17,7 +20,7 @@ from app.modules.doctor.domain.entities import (
     DoctorSchedule,
     DoctorSpecialization,
 )
-from app.modules.doctor.domain.enums import DayOfWeek
+from app.modules.doctor.domain.enums import DayOfWeek, DoctorStatus
 from app.modules.doctor.domain.repositories import (
     DoctorLicenseRepository,
     DoctorProfileRepository,
@@ -58,6 +61,44 @@ class FakeDoctorRepository(DoctorRepository):
     ) -> list[Doctor]:
         matches = [d for d in self._doctors.values() if d.organization_id == organization_id]
         return matches[offset : offset + limit]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[DoctorStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Doctor], int]:
+        """`query` matches `employee_id` only: the real repository also
+        matches the doctor's profile `full_name` via a join this
+        single-repository fake has no access to (`DoctorProfile` is a
+        separate aggregate/repository)."""
+        matches = [d for d in self._doctors.values() if d.organization_id == organization_id]
+        if statuses:
+            matches = [d for d in matches if d.status in statuses]
+        if created_from is not None:
+            matches = [d for d in matches if d.created_at >= created_from]
+        if created_to is not None:
+            matches = [d for d in matches if d.created_at <= created_to]
+        if updated_from is not None:
+            matches = [d for d in matches if d.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [d for d in matches if d.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [d for d in matches if term in d.employee_id.lower()]
+        matches.sort(key=lambda d: getattr(d, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, doctor: Doctor) -> None:
         self._doctors[doctor.id] = doctor

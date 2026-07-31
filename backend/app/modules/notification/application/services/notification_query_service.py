@@ -17,10 +17,14 @@ delivery hasn't been confirmed yet — and `Read`/`Cancelled`/`Expired`
 notifications are resolved states, not unread ones.
 """
 
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.notification.application.dto import NotificationSummaryDTO
 from app.modules.notification.domain.entities import Notification
+from app.modules.notification.domain.enums import NotificationPriority, NotificationStatus
 from app.modules.notification.domain.repositories import NotificationRepository
 
 
@@ -48,6 +52,52 @@ class NotificationQueryService:
     ) -> list[NotificationSummaryDTO]:
         notifications = await self._notifications.list_unread_by_recipient(recipient_user_id)
         return [_to_summary(notification) for notification in notifications]
+
+    async def search_notifications(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[NotificationStatus] | None = None,
+        priorities: Sequence[NotificationPriority] | None = None,
+        recipient_user_id: UUID | None = None,
+        reference_type: str | None = None,
+        reference_id: UUID | None = None,
+        scheduled_from: datetime | None = None,
+        scheduled_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "desc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[NotificationSummaryDTO], int]:
+        """Search & Filtering module — see `NotificationRepository.search`'s
+        docstring for filter/sort/pagination semantics."""
+        notifications, total = await self._notifications.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            priorities=priorities,
+            recipient_user_id=recipient_user_id,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            scheduled_from=scheduled_from,
+            scheduled_to=scheduled_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        return [_to_summary(notification) for notification in notifications], total
 
 
 def _to_summary(notification: Notification) -> NotificationSummaryDTO:

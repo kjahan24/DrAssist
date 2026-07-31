@@ -190,6 +190,95 @@ class TestListUnreadByRecipient:
         assert [n.id for n in results] == [delivered.id]
 
 
+class TestNotificationSearch:
+    """Search & Filtering module — `SqlAlchemyNotificationRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_recipient(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, recipient = await persist_organization_and_user(db_session)
+        other_org, other_recipient = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyNotificationRepository(db_session)
+        notification = Notification.create(
+            organization_id=organization.id,
+            recipient_user_id=recipient.id,
+            notification_type=NotificationType.GENERAL,
+            title="Appointment reminder",
+            message="Your appointment is tomorrow at 10am.",
+            priority=NotificationPriority.NORMAL,
+        )
+        other = Notification.create(
+            organization_id=other_org.id,
+            recipient_user_id=other_recipient.id,
+            notification_type=NotificationType.GENERAL,
+            title="Unrelated",
+            message="Unrelated notification.",
+            priority=NotificationPriority.NORMAL,
+        )
+        await repo.add(notification)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, recipient_user_id=recipient.id
+        )
+
+        assert total == 1
+        assert [n.id for n in results] == [notification.id]
+
+    async def test_query_matches_title_or_message_full_text(self, db_session: AsyncSession) -> None:
+        organization, recipient = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyNotificationRepository(db_session)
+        notification = Notification.create(
+            organization_id=organization.id,
+            recipient_user_id=recipient.id,
+            notification_type=NotificationType.GENERAL,
+            title="Appointment reminder",
+            message="Your appointment is tomorrow at 10am.",
+            priority=NotificationPriority.NORMAL,
+        )
+        await repo.add(notification)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="tomorrow")
+
+        assert total == 1
+        assert [n.id for n in results] == [notification.id]
+
+    async def test_status_and_priority_filters(self, db_session: AsyncSession) -> None:
+        organization, recipient = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyNotificationRepository(db_session)
+        urgent = Notification.create(
+            organization_id=organization.id,
+            recipient_user_id=recipient.id,
+            notification_type=NotificationType.GENERAL,
+            title="Urgent",
+            message="Urgent message.",
+            priority=NotificationPriority.CRITICAL,
+        )
+        urgent.mark_sent()
+        normal = Notification.create(
+            organization_id=organization.id,
+            recipient_user_id=recipient.id,
+            notification_type=NotificationType.GENERAL,
+            title="Normal",
+            message="Normal message.",
+            priority=NotificationPriority.NORMAL,
+        )
+        await repo.add(urgent)
+        await repo.add(normal)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[NotificationStatus.SENT],
+            priorities=[NotificationPriority.CRITICAL],
+        )
+
+        assert total == 1
+        assert [n.id for n in results] == [urgent.id]
+
+
 class TestNotificationRequiresValidReferences:
     async def test_nonexistent_organization_id_violates_fk_constraint(
         self, db_session: AsyncSession

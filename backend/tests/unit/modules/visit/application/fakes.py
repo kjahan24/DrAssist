@@ -7,7 +7,9 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
-from datetime import date
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.doctor.domain.enums import DoctorStatus
@@ -17,6 +19,7 @@ from app.modules.patient.domain.enums import Gender, PatientStatus
 from app.modules.patient.public.dto import PatientSummaryDTO
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.domain.entities import PatientVisit
+from app.modules.visit.domain.enums import VisitStatus
 from app.modules.visit.domain.repositories import PatientVisitRepository
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.domain.domain_event import DomainEvent
@@ -42,6 +45,64 @@ class FakePatientVisitRepository(PatientVisitRepository):
 
     async def list_by_patient(self, patient_id: UUID) -> list[PatientVisit]:
         return [v for v in self._visits.values() if v.patient_id == patient_id]
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[VisitStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_date_from: date | None = None,
+        visit_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "visit_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[PatientVisit], int]:
+        matches = [v for v in self._visits.values() if v.organization_id == organization_id]
+        if statuses:
+            matches = [v for v in matches if v.visit_status in statuses]
+        if patient_id is not None:
+            matches = [v for v in matches if v.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [v for v in matches if v.doctor_id == doctor_id]
+        if visit_date_from is not None:
+            matches = [v for v in matches if v.visit_date >= visit_date_from]
+        if visit_date_to is not None:
+            matches = [v for v in matches if v.visit_date <= visit_date_to]
+        if created_from is not None:
+            matches = [v for v in matches if v.created_at >= created_from]
+        if created_to is not None:
+            matches = [v for v in matches if v.created_at <= created_to]
+        if updated_from is not None:
+            matches = [v for v in matches if v.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [v for v in matches if v.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+
+            def _matches_query(v: PatientVisit) -> bool:
+                return (
+                    term in v.visit_number.lower()
+                    or (
+                        v.chief_complaint_summary is not None
+                        and term in v.chief_complaint_summary.lower()
+                    )
+                    or (v.reason_for_visit is not None and term in v.reason_for_visit.lower())
+                    or (v.notes is not None and term in v.notes.lower())
+                )
+
+            matches = [v for v in matches if _matches_query(v)]
+        matches.sort(key=lambda v: getattr(v, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, visit: PatientVisit) -> None:
         self._visits[visit.id] = visit

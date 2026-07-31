@@ -10,6 +10,9 @@ tracking.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.patient.domain.entities import (
@@ -21,7 +24,7 @@ from app.modules.patient.domain.entities import (
     PatientMedicalCondition,
     PatientMedication,
 )
-from app.modules.patient.domain.enums import ContactType
+from app.modules.patient.domain.enums import ContactType, PatientStatus
 
 
 class PatientRepository(ABC):
@@ -37,6 +40,34 @@ class PatientRepository(ABC):
     async def list_by_organization(
         self, organization_id: UUID, *, offset: int = 0, limit: int = 20
     ) -> list[Patient]: ...
+
+    @abstractmethod
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[PatientStatus] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Patient], int]:
+        """Search & Filtering module: organization-scoped search over
+        patients, combining full-text search (`first_name`/`last_name`/
+        `preferred_name`) with a partial `patient_number` match in a single
+        `query` parameter, plus status/date-range filtering, sorting, and
+        SQL-level pagination — see
+        `app.infrastructure.database.query_utils` for the building blocks
+        and `SqlAlchemyPatientRepository.search` for how they compose.
+        Returns `(page_of_patients, total_matching_count)`; the count
+        reflects every filter but not `offset`/`limit`."""
+        ...
 
     @abstractmethod
     async def add(self, patient: Patient) -> None: ...

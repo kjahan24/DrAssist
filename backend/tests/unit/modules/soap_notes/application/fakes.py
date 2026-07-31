@@ -7,7 +7,9 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.clinical_notes.domain.enums import ClinicalNoteStatus, ClinicalNoteType
@@ -31,6 +33,58 @@ class FakeSOAPNoteRepository(SOAPNoteRepository):
             if note.clinical_note_id == clinical_note_id:
                 return note
         return None
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "created_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[SOAPNote], int]:
+        matches = [n for n in self._notes.values() if n.organization_id == organization_id]
+        if patient_id is not None:
+            matches = [n for n in matches if n.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [n for n in matches if n.doctor_id == doctor_id]
+        if visit_id is not None:
+            matches = [n for n in matches if n.visit_id == visit_id]
+        if created_from is not None:
+            matches = [n for n in matches if n.created_at >= created_from]
+        if created_to is not None:
+            matches = [n for n in matches if n.created_at <= created_to]
+        if updated_from is not None:
+            matches = [n for n in matches if n.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [n for n in matches if n.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+
+            def _matches_query(n: SOAPNote) -> bool:
+                fields = (
+                    n.chief_complaint,
+                    n.history_of_present_illness,
+                    n.review_of_systems,
+                    n.physical_examination,
+                    n.assessment,
+                    n.plan,
+                )
+                return any(f is not None and term in f.lower() for f in fields)
+
+            matches = [n for n in matches if _matches_query(n)]
+        matches.sort(key=lambda n: getattr(n, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, soap_note: SOAPNote) -> None:
         self._notes[soap_note.id] = soap_note

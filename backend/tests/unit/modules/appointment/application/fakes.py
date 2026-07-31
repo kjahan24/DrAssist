@@ -7,10 +7,13 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
-from datetime import date
+from collections.abc import Sequence
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.appointment.domain.entities import Appointment
+from app.modules.appointment.domain.enums import AppointmentStatus
 from app.modules.appointment.domain.repositories import AppointmentRepository
 from app.modules.authentication.application.dto import UserSummaryDTO
 from app.modules.authentication.domain.enums import UserStatus
@@ -48,6 +51,58 @@ class FakeAppointmentRepository(AppointmentRepository):
     async def list_by_doctor(self, doctor_id: UUID) -> list[Appointment]:
         matches = [a for a in self._appointments.values() if a.doctor_id == doctor_id]
         return sorted(matches, key=lambda a: (a.appointment_date, a.start_time))
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[AppointmentStatus] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        appointment_date_from: date | None = None,
+        appointment_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "appointment_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Appointment], int]:
+        matches = [a for a in self._appointments.values() if a.organization_id == organization_id]
+        if statuses:
+            matches = [a for a in matches if a.status in statuses]
+        if patient_id is not None:
+            matches = [a for a in matches if a.patient_id == patient_id]
+        if doctor_id is not None:
+            matches = [a for a in matches if a.doctor_id == doctor_id]
+        if appointment_date_from is not None:
+            matches = [a for a in matches if a.appointment_date >= appointment_date_from]
+        if appointment_date_to is not None:
+            matches = [a for a in matches if a.appointment_date <= appointment_date_to]
+        if created_from is not None:
+            matches = [a for a in matches if a.created_at >= created_from]
+        if created_to is not None:
+            matches = [a for a in matches if a.created_at <= created_to]
+        if updated_from is not None:
+            matches = [a for a in matches if a.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [a for a in matches if a.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [
+                a
+                for a in matches
+                if term in a.appointment_number.lower()
+                or (a.reason_for_visit is not None and term in a.reason_for_visit.lower())
+                or (a.notes is not None and term in a.notes.lower())
+            ]
+        matches.sort(key=lambda a: getattr(a, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, appointment: Appointment) -> None:
         self._appointments[appointment.id] = appointment

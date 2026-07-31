@@ -209,6 +209,93 @@ class TestVisitNumberUniqueness:
         await db_session.rollback()
 
 
+class TestPatientVisitSearch:
+    """Search & Filtering module — `SqlAlchemyPatientVisitRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_patient(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor = await _persist_patient_and_doctor(db_session)
+        _org2, other_patient, other_doctor = await _persist_patient_and_doctor(db_session)
+        repo = SqlAlchemyPatientVisitRepository(db_session)
+        visit = PatientVisit.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            visit_number=f"V-{uuid4().hex[:12].upper()}",
+            visit_type=VisitType.CONSULTATION,
+            visit_date=date(2026, 1, 1),
+            chief_complaint_summary="Recurring migraines",
+        )
+        other = PatientVisit.create(
+            organization_id=_org2.id,
+            patient_id=other_patient.id,
+            doctor_id=other_doctor.id,
+            visit_number=f"V-{uuid4().hex[:12].upper()}",
+            visit_type=VisitType.CONSULTATION,
+            visit_date=date(2026, 1, 1),
+        )
+        await repo.add(visit)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, patient_id=patient.id)
+
+        assert total == 1
+        assert [v.id for v in results] == [visit.id]
+
+    async def test_query_matches_chief_complaint_full_text(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor = await _persist_patient_and_doctor(db_session)
+        repo = SqlAlchemyPatientVisitRepository(db_session)
+        visit = PatientVisit.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            visit_number=f"V-{uuid4().hex[:12].upper()}",
+            visit_type=VisitType.CONSULTATION,
+            visit_date=date(2026, 1, 1),
+            chief_complaint_summary="Recurring migraines",
+        )
+        await repo.add(visit)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="migraines")
+
+        assert total == 1
+        assert [v.id for v in results] == [visit.id]
+
+    async def test_status_and_visit_date_range_filters(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor = await _persist_patient_and_doctor(db_session)
+        repo = SqlAlchemyPatientVisitRepository(db_session)
+        cancelled = PatientVisit.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            visit_number=f"V-{uuid4().hex[:12].upper()}",
+            visit_type=VisitType.CONSULTATION,
+            visit_date=date(2026, 6, 1),
+        )
+        cancelled.cancel()
+        scheduled = PatientVisit.create(
+            organization_id=organization.id,
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            visit_number=f"V-{uuid4().hex[:12].upper()}",
+            visit_type=VisitType.CONSULTATION,
+            visit_date=date(2026, 6, 1),
+        )
+        await repo.add(cancelled)
+        await repo.add(scheduled)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, statuses=[VisitStatus.CANCELLED]
+        )
+
+        assert total == 1
+        assert [v.id for v in results] == [cancelled.id]
+
+
 class TestPatientVisitRequiresValidReferences:
     async def test_nonexistent_patient_id_violates_fk_constraint(
         self, db_session: AsyncSession

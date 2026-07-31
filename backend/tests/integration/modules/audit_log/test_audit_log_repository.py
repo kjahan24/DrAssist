@@ -161,6 +161,128 @@ class TestListQueries:
         assert [a.id for a in results] == [mine.id]
 
 
+class TestAuditLogSearch:
+    """Search & Filtering module — `SqlAlchemyAuditLogRepository.search`."""
+
+    async def test_scopes_to_organization_at_the_sql_layer(self, db_session: AsyncSession) -> None:
+        organization, user = await persist_organization_and_user(db_session)
+        other_org, other_user = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyAuditLogRepository(db_session)
+        entry = AuditLog.record(
+            organization_id=organization.id,
+            actor_user_id=user.id,
+            entity_type="Appointment",
+            entity_id=uuid4(),
+            action=AuditAction.CREATE,
+            source=AuditSource.API,
+        )
+        other = AuditLog.record(
+            organization_id=other_org.id,
+            actor_user_id=other_user.id,
+            entity_type="Appointment",
+            entity_id=uuid4(),
+            action=AuditAction.CREATE,
+            source=AuditSource.API,
+        )
+        await repo.add(entry)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id)
+
+        assert total == 1
+        assert [a.id for a in results] == [entry.id]
+
+    async def test_action_source_and_actor_filters(self, db_session: AsyncSession) -> None:
+        organization, user = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyAuditLogRepository(db_session)
+        login = AuditLog.record(
+            organization_id=organization.id,
+            actor_user_id=user.id,
+            entity_type="Session",
+            entity_id=uuid4(),
+            action=AuditAction.LOGIN,
+            source=AuditSource.API,
+        )
+        system_create = AuditLog.record(
+            organization_id=organization.id,
+            entity_type="Appointment",
+            entity_id=uuid4(),
+            action=AuditAction.CREATE,
+            source=AuditSource.SYSTEM,
+        )
+        await repo.add(login)
+        await repo.add(system_create)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            actions=[AuditAction.LOGIN],
+            sources=[AuditSource.API],
+            actor_user_id=user.id,
+        )
+
+        assert total == 1
+        assert [a.id for a in results] == [login.id]
+
+    async def test_query_matches_entity_type_and_correlation_id_partially(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, user = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyAuditLogRepository(db_session)
+        entry = AuditLog.record(
+            organization_id=organization.id,
+            actor_user_id=user.id,
+            entity_type="LabOrder",
+            entity_id=uuid4(),
+            action=AuditAction.CREATE,
+            source=AuditSource.API,
+            correlation_id="corr-unique-042",
+        )
+        await repo.add(entry)
+        await db_session.commit()
+
+        by_entity_type, entity_total = await repo.search(
+            organization_id=organization.id, query="LabOrder"
+        )
+        by_correlation, correlation_total = await repo.search(
+            organization_id=organization.id, query="unique-042"
+        )
+
+        assert entity_total == 1
+        assert [a.id for a in by_entity_type] == [entry.id]
+        assert correlation_total == 1
+        assert [a.id for a in by_correlation] == [entry.id]
+
+    async def test_default_sort_order_is_newest_first(self, db_session: AsyncSession) -> None:
+        organization, user = await persist_organization_and_user(db_session)
+        repo = SqlAlchemyAuditLogRepository(db_session)
+        first = AuditLog.record(
+            organization_id=organization.id,
+            actor_user_id=user.id,
+            entity_type="Appointment",
+            entity_id=uuid4(),
+            action=AuditAction.CREATE,
+            source=AuditSource.API,
+        )
+        await repo.add(first)
+        await db_session.commit()
+        second = AuditLog.record(
+            organization_id=organization.id,
+            actor_user_id=user.id,
+            entity_type="Appointment",
+            entity_id=uuid4(),
+            action=AuditAction.UPDATE,
+            source=AuditSource.API,
+        )
+        await repo.add(second)
+        await db_session.commit()
+
+        results, _total = await repo.search(organization_id=organization.id)
+
+        assert [a.id for a in results] == [second.id, first.id]
+
+
 class TestAuditLogRequiresValidReferences:
     async def test_nonexistent_organization_id_violates_fk_constraint(
         self, db_session: AsyncSession

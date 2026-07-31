@@ -6,13 +6,15 @@
 1:1-with-parent relationship.
 """
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.lab_results.api.dependencies import (
     get_add_lab_result_item_use_case,
@@ -40,9 +42,14 @@ from app.modules.lab_results.application.use_cases.add_lab_result_item import Ad
 from app.modules.lab_results.application.use_cases.create_lab_result import CreateLabResult
 from app.modules.lab_results.application.use_cases.finalize_lab_result import FinalizeLabResult
 from app.modules.lab_results.application.use_cases.update_lab_result import UpdateLabResult
+from app.modules.lab_results.domain.enums import LabResultStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
+
+_SEARCH_SORT_FIELDS = frozenset(
+    {"created_at", "updated_at", "result_number", "reported_at", "status"}
+)
 
 QueryService = Annotated[LabResultQueryService, Depends(get_lab_result_query_service)]
 CreateUseCase = Annotated[CreateLabResult, Depends(get_create_lab_result_use_case)]
@@ -92,6 +99,55 @@ async def get_lab_result(
     lab_result_id: UUID, query_service: QueryService, current_user: CurrentUser
 ) -> LabResultResponse:
     return await _get_response_by_id(lab_result_id, query_service, current_user)
+
+
+@router.get("", response_model=PaginatedResponse[LabResultResponse])
+async def search_lab_results(
+    query_service: QueryService,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[LabResultStatus] | None, Query(alias="status")] = None,
+    patient_id: UUID | None = None,
+    doctor_id: UUID | None = None,
+    visit_id: UUID | None = None,
+    lab_order_id: UUID | None = None,
+    reported_from: datetime | None = None,
+    reported_to: datetime | None = None,
+) -> PaginatedResponse[LabResultResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over lab results — see
+    `LabResultRepository.search`'s docstring for how `filters.q` is
+    matched, and `LabResultQueryService.search_lab_results`'s docstring
+    for how embedded items are batch-loaded to avoid N+1."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SEARCH_SORT_FIELDS, default_field="reported_at"
+    )
+    summaries, total = await query_service.search_lab_results(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        visit_id=visit_id,
+        lab_order_id=lab_order_id,
+        reported_from=reported_from,
+        reported_to=reported_to,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [LabResultResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.get("/patient/{patient_id}", response_model=PaginatedResponse[LabResultResponse])

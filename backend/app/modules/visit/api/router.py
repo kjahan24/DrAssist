@@ -6,13 +6,15 @@ on every route, `ensure_same_organization` after every by-id fetch,
 `DomainError` translated globally, no business logic duplicated here.
 """
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.visit.api.dependencies import (
     get_patient_visit_query_service,
@@ -24,6 +26,7 @@ from app.modules.visit.application.services.patient_visit_query_service import (
     PatientVisitQueryService,
 )
 from app.modules.visit.application.use_cases.schedule_visit import ScheduleVisit
+from app.modules.visit.domain.enums import VisitStatus
 from app.schemas.base import PaginatedResponse
 
 router = APIRouter()
@@ -59,6 +62,50 @@ async def get_visit(
     response = PatientVisitResponse.model_validate(summary)
     ensure_same_organization(response.organization_id, current_user)
     return response
+
+
+@router.get("", response_model=PaginatedResponse[PatientVisitResponse])
+async def search_visits(
+    query_service: QueryService,
+    pagination: Pagination,
+    sorting: Sorting,
+    filters: SearchFilters,
+    current_user: CurrentUser,
+    status_filter: Annotated[list[VisitStatus] | None, Query(alias="status")] = None,
+    patient_id: UUID | None = None,
+    doctor_id: UUID | None = None,
+    visit_date_from: date | None = None,
+    visit_date_to: date | None = None,
+) -> PaginatedResponse[PatientVisitResponse]:
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate over patient visits — see
+    `PatientVisitRepository.search`'s docstring for how `filters.q`
+    combines full-text and partial matching."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="visit_date"
+    )
+    summaries, total = await query_service.search_visits(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        statuses=status_filter,
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        visit_date_from=visit_date_from,
+        visit_date_to=visit_date_to,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        updated_from=filters.updated_from,
+        updated_to=filters.updated_to,
+        include_deleted=filters.include_deleted,
+        sort_by=sort_field,
+        sort_order=sorting.sort_order,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [PatientVisitResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.get("/patient/{patient_id}", response_model=PaginatedResponse[PatientVisitResponse])

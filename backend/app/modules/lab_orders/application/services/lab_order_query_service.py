@@ -26,11 +26,15 @@ Clinical Decision Support, Notifications) all need the actual test data,
 not just "an order exists".
 """
 
+from collections import defaultdict
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.modules.lab_orders.application.dto import LabOrderItemSummaryDTO, LabOrderSummaryDTO
 from app.modules.lab_orders.domain.entities import LabOrder, LabOrderItem
-from app.modules.lab_orders.domain.enums import LabOrderStatus
+from app.modules.lab_orders.domain.enums import LabOrderStatus, Priority
 from app.modules.lab_orders.domain.repositories import LabOrderItemRepository, LabOrderRepository
 
 _NOT_EDITABLE_STATUSES = frozenset(
@@ -71,23 +75,82 @@ class LabOrderQueryService:
         lab_orders = await self._lab_orders.list_by_patient(patient_id)
         return [await self._to_summary(lab_order) for lab_order in lab_orders]
 
+    async def search_lab_orders(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        statuses: Sequence[LabOrderStatus] | None = None,
+        priorities: Sequence[Priority] | None = None,
+        patient_id: UUID | None = None,
+        doctor_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        clinical_note_id: UUID | None = None,
+        ordered_from: datetime | None = None,
+        ordered_to: datetime | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "ordered_at",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[LabOrderSummaryDTO], int]:
+        """Search & Filtering module — see `LabOrderRepository.search`'s
+        docstring for filter/sort/pagination semantics, and
+        `PrescriptionQueryService.search_prescriptions`'s docstring for
+        the identical batch-item N+1-avoidance shape used here."""
+        lab_orders, total = await self._lab_orders.search(
+            organization_id=organization_id,
+            query=query,
+            statuses=statuses,
+            priorities=priorities,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            visit_id=visit_id,
+            clinical_note_id=clinical_note_id,
+            ordered_from=ordered_from,
+            ordered_to=ordered_to,
+            created_from=created_from,
+            created_to=created_to,
+            updated_from=updated_from,
+            updated_to=updated_to,
+            include_deleted=include_deleted,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            limit=limit,
+        )
+        items_by_order: dict[UUID, list[LabOrderItem]] = defaultdict(list)
+        for item in await self._items.list_by_lab_orders([o.id for o in lab_orders]):
+            items_by_order[item.lab_order_id].append(item)
+        return [
+            _build_summary(lab_order, items_by_order[lab_order.id]) for lab_order in lab_orders
+        ], total
+
     async def _to_summary(self, lab_order: LabOrder) -> LabOrderSummaryDTO:
         items = await self._items.list_by_lab_order(lab_order.id)
-        return LabOrderSummaryDTO(
-            lab_order_id=lab_order.id,
-            organization_id=lab_order.organization_id,
-            clinical_note_id=lab_order.clinical_note_id,
-            patient_id=lab_order.patient_id,
-            visit_id=lab_order.visit_id,
-            doctor_id=lab_order.doctor_id,
-            order_number=lab_order.order_number,
-            ordered_at=lab_order.ordered_at,
-            priority=lab_order.priority,
-            status=lab_order.status,
-            clinical_information=lab_order.clinical_information,
-            notes=lab_order.notes,
-            items=[_to_item_summary(item) for item in items],
-        )
+        return _build_summary(lab_order, items)
+
+
+def _build_summary(lab_order: LabOrder, items: Sequence[LabOrderItem]) -> LabOrderSummaryDTO:
+    return LabOrderSummaryDTO(
+        lab_order_id=lab_order.id,
+        organization_id=lab_order.organization_id,
+        clinical_note_id=lab_order.clinical_note_id,
+        patient_id=lab_order.patient_id,
+        visit_id=lab_order.visit_id,
+        doctor_id=lab_order.doctor_id,
+        order_number=lab_order.order_number,
+        ordered_at=lab_order.ordered_at,
+        priority=lab_order.priority,
+        status=lab_order.status,
+        clinical_information=lab_order.clinical_information,
+        notes=lab_order.notes,
+        items=[_to_item_summary(item) for item in items],
+    )
 
 
 def _to_item_summary(item: LabOrderItem) -> LabOrderItemSummaryDTO:

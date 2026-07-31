@@ -146,3 +146,62 @@ class TestListPrescriptionsForPatient:
         self, service: PrescriptionQueryService
     ) -> None:
         assert await service.list_prescriptions_for_patient(uuid4()) == []
+
+
+class TestSearchPrescriptions:
+    """Search & Filtering module — `PrescriptionQueryService
+    .search_prescriptions`. The key behavior worth a dedicated unit test
+    (beyond simple filter/DTO-mapping forwarding, already covered by
+    `SqlAlchemyPrescriptionRepository`'s own integration tests) is that
+    each result's embedded items are correctly grouped back to *its own*
+    prescription — not mixed up across prescriptions — after being
+    fetched in a single batched call."""
+
+    async def test_embeds_each_prescriptions_own_items_only(
+        self,
+        service: PrescriptionQueryService,
+        prescription_repo: FakePrescriptionRepository,
+        item_repo: FakePrescriptionItemRepository,
+    ) -> None:
+        organization_id = uuid4()
+        prescription_a = _make_prescription(
+            organization_id=organization_id, prescription_number="RX-A"
+        )
+        prescription_b = _make_prescription(
+            organization_id=organization_id, prescription_number="RX-B"
+        )
+        await prescription_repo.add(prescription_a)
+        await prescription_repo.add(prescription_b)
+        await item_repo.add(
+            _make_item(prescription_id=prescription_a.id, medication_name="Amoxicillin")
+        )
+        await item_repo.add(
+            _make_item(prescription_id=prescription_b.id, medication_name="Ibuprofen")
+        )
+
+        summaries, total = await service.search_prescriptions(organization_id=organization_id)
+
+        assert total == 2
+        by_number = {s.prescription_number: s for s in summaries}
+        assert [i.medication_name for i in by_number["RX-A"].items] == ["Amoxicillin"]
+        assert [i.medication_name for i in by_number["RX-B"].items] == ["Ibuprofen"]
+
+    async def test_prescription_without_items_gets_an_empty_item_list(
+        self,
+        service: PrescriptionQueryService,
+        prescription_repo: FakePrescriptionRepository,
+    ) -> None:
+        organization_id = uuid4()
+        await prescription_repo.add(_make_prescription(organization_id=organization_id))
+
+        summaries, _total = await service.search_prescriptions(organization_id=organization_id)
+
+        assert summaries[0].items == []
+
+    async def test_returns_empty_result_for_an_organization_with_no_prescriptions(
+        self, service: PrescriptionQueryService
+    ) -> None:
+        summaries, total = await service.search_prescriptions(organization_id=uuid4())
+
+        assert summaries == []
+        assert total == 0

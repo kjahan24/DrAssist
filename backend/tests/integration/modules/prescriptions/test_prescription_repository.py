@@ -200,6 +200,99 @@ class TestListByPatient:
         assert {p.prescription_number for p in prescriptions} == {"RX-PAT-A", "RX-PAT-B"}
 
 
+class TestPrescriptionSearch:
+    """Search & Filtering module — `SqlAlchemyPrescriptionRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_patient(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        _org2, other_patient, other_doctor, other_visit, other_note = await persist_full_chain(
+            db_session
+        )
+        repo = SqlAlchemyPrescriptionRepository(db_session)
+        prescription = Prescription.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            prescription_number=f"RX-{uuid4().hex[:12].upper()}",
+            prescription_date=date(2026, 1, 1),
+            notes="Take with food",
+        )
+        other = Prescription.create(
+            organization_id=_org2.id,
+            clinical_note_id=other_note.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_id=other_doctor.id,
+            prescription_number=f"RX-{uuid4().hex[:12].upper()}",
+            prescription_date=date(2026, 1, 1),
+        )
+        await repo.add(prescription)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, patient_id=patient.id)
+
+        assert total == 1
+        assert [p.id for p in results] == [prescription.id]
+
+    async def test_query_matches_notes_full_text_or_number_partial(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        repo = SqlAlchemyPrescriptionRepository(db_session)
+        prescription = Prescription.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            prescription_number="RX-SPECIAL-042",
+            prescription_date=date(2026, 1, 1),
+            notes="Avoid grapefruit juice",
+        )
+        await repo.add(prescription)
+        await db_session.commit()
+
+        by_notes, notes_total = await repo.search(
+            organization_id=organization.id, query="grapefruit"
+        )
+        by_number, number_total = await repo.search(
+            organization_id=organization.id, query="SPECIAL-042"
+        )
+
+        assert notes_total == 1
+        assert [p.id for p in by_notes] == [prescription.id]
+        assert number_total == 1
+        assert [p.id for p in by_number] == [prescription.id]
+
+    async def test_status_filter(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        repo = SqlAlchemyPrescriptionRepository(db_session)
+        final = Prescription.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            prescription_number=f"RX-{uuid4().hex[:12].upper()}",
+            prescription_date=date(2026, 1, 1),
+        )
+        final.finalize()
+        await repo.add(final)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, statuses=[PrescriptionStatus.FINAL]
+        )
+
+        assert total == 1
+        assert [p.id for p in results] == [final.id]
+
+
 class TestOneToOneUniqueness:
     async def test_a_second_prescription_for_the_same_clinical_note_violates_unique_index(
         self, db_session: AsyncSession

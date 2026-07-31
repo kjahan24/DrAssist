@@ -243,6 +243,106 @@ class TestListByPatient:
         assert {o.order_number for o in orders} == {"LAB-PAT-A", "LAB-PAT-B"}
 
 
+class TestLabOrderSearch:
+    """Search & Filtering module — `SqlAlchemyLabOrderRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_visit(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        _org2, other_patient, other_doctor, other_visit, other_note = await persist_full_chain(
+            db_session
+        )
+        repo = SqlAlchemyLabOrderRepository(db_session)
+        order = LabOrder.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            order_number=f"LAB-{uuid4().hex[:12].upper()}",
+            ordered_at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            clinical_information="Rule out anemia",
+        )
+        other = LabOrder.create(
+            organization_id=_org2.id,
+            clinical_note_id=other_note.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_id=other_doctor.id,
+            order_number=f"LAB-{uuid4().hex[:12].upper()}",
+            ordered_at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        )
+        await repo.add(order)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, visit_id=visit.id)
+
+        assert total == 1
+        assert [o.id for o in results] == [order.id]
+
+    async def test_query_matches_clinical_information_full_text(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        repo = SqlAlchemyLabOrderRepository(db_session)
+        order = LabOrder.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            order_number=f"LAB-{uuid4().hex[:12].upper()}",
+            ordered_at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            clinical_information="Rule out anemia",
+        )
+        await repo.add(order)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="anemia")
+
+        assert total == 1
+        assert [o.id for o in results] == [order.id]
+
+    async def test_status_and_priority_filters(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, clinical_note = await persist_full_chain(db_session)
+        repo = SqlAlchemyLabOrderRepository(db_session)
+        stat_order = LabOrder.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            order_number=f"LAB-{uuid4().hex[:12].upper()}",
+            ordered_at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            priority=Priority.STAT,
+        )
+        stat_order.place_order()
+        routine_order = LabOrder.create(
+            organization_id=organization.id,
+            clinical_note_id=clinical_note.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            order_number=f"LAB-{uuid4().hex[:12].upper()}",
+            ordered_at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+            priority=Priority.ROUTINE,
+        )
+        await repo.add(stat_order)
+        await repo.add(routine_order)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[LabOrderStatus.ORDERED],
+            priorities=[Priority.STAT],
+        )
+
+        assert total == 1
+        assert [o.id for o in results] == [stat_order.id]
+
+
 class TestOrderNumberUniqueness:
     async def test_duplicate_order_number_across_different_notes_violates_unique_index(
         self, db_session: AsyncSession

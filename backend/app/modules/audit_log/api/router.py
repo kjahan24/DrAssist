@@ -6,47 +6,60 @@ New — this module had no `api/` package before the REST APIs task (see
 entries are never directly client-created (see `api/schemas.py`'s own
 docstring).
 
-`list_for_entity`/`list_for_actor` take no `organization_id` parameter at
-the query-service level (see that service's own docstring — `entity_id`/
-`actor_user_id` alone are the natural keys for those two read axes), so
-this router applies the tenant-isolation filter itself, defensively,
-after fetching — the same multi-tenant-correctness posture
-`ensure_same_organization` enforces everywhere else in this API, just
-applied as a list filter here instead of a single-record guard.
-`list_for_organization` never takes a client-supplied organization id at
-all — it always uses `current_user.organization_id` directly, the same
-"derive, don't trust" pattern `app.modules.authentication.api.router
-.list_roles` already establishes for its own organization-scoped list.
+Search & Filtering module: all three list endpoints below now go through
+`AuditLogQueryService.search`, which filters by `organization_id` at the
+SQL layer — replacing the REST APIs task's original approach (documented
+in the git history this docstring used to carry) of fetching up to 1000
+rows per request and paginating/filtering in memory, including a
+defensive post-fetch organization filter on the entity/actor endpoints.
+`search` takes `organization_id` as a required, non-optional parameter,
+so that cross-tenant filtering is structural rather than a filter someone
+could forget to apply — the same "derive, don't trust" posture
+`app.modules.authentication.api.router.list_roles` already establishes,
+now extended to these two endpoints as well as the organization-wide one.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, ensure_same_organization
-from app.api.pagination import Pagination, Sorting, paginate_and_sort
+from app.api.pagination import Pagination, Sorting
+from app.api.search_params import SearchFilters, resolve_sort_field
 from app.core.exceptions import NotFoundError
 from app.modules.audit_log.api.dependencies import get_audit_log_query_service
 from app.modules.audit_log.api.schemas import AuditLogResponse
 from app.modules.audit_log.application.services.audit_log_query_service import (
     AuditLogQueryService,
 )
+from app.modules.audit_log.domain.enums import AuditAction, AuditSource
 from app.schemas.base import PaginatedResponse
-
-router = APIRouter()
 
 _SORT_FIELDS = frozenset({"action", "source", "created_at", "entity_type"})
 
-# `list_for_organization` accepts native offset/limit, but every other
-# module's list endpoint fetches everything and paginates/sorts in
-# memory via `paginate_and_sort` (see that helper's own docstring) — kept
-# consistent here rather than special-casing the one query method that
-# happens to support native pagination; this ceiling is a generous upper
-# bound on how many entries one page-fetch pulls before in-memory slicing.
-_FETCH_CEILING = 1000
+router = APIRouter()
 
 QueryService = Annotated[AuditLogQueryService, Depends(get_audit_log_query_service)]
+
+
+def _effective_sort_order(sorting: Sorting) -> Literal["asc", "desc"]:
+    """Every pre-existing `list_for_*` repository method here orders
+    `created_at.desc()` with no way to ask for anything else, and every
+    pre-existing endpoint preserved that when the caller didn't specify a
+    `sort_by` (`paginate_and_sort` skips sorting entirely when `sort_by`
+    is `None`, leaving the repository's own fetch order intact). Now that
+    `search()` always applies an explicit `ORDER BY`, forwarding
+    `sorting.sort_order` unconditionally would silently flip the default
+    from newest-first to oldest-first, since `SortParams.sort_order`
+    itself defaults to `"asc"` — a real behavior regression for existing
+    callers relying on the old default. Falling back to `"desc"` only
+    when `sort_by` was never given preserves the old default exactly,
+    while still letting a caller who *does* pick a `sort_by` also pick
+    its direction, same as every other module."""
+    if sorting.sort_by is None:
+        return "desc"
+    return sorting.sort_order
 
 
 @router.get("/{audit_log_id}", response_model=AuditLogResponse)
@@ -66,14 +79,44 @@ async def list_audit_logs_for_organization(
     query_service: QueryService,
     pagination: Pagination,
     sorting: Sorting,
+    filters: SearchFilters,
     current_user: CurrentUser,
+    action: Annotated[list[AuditAction] | None, Query()] = None,
+    source: Annotated[list[AuditSource] | None, Query()] = None,
+    entity_type: str | None = None,
+    entity_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    correlation_id: str | None = None,
 ) -> PaginatedResponse[AuditLogResponse]:
-    summaries = await query_service.list_for_organization(
-        current_user.organization_id, offset=0, limit=_FETCH_CEILING
+    """Search & Filtering module: organization-scoped, database-backed
+    search/filter/sort/paginate — see `AuditLogRepository.search`'s
+    docstring for how `filters.q` is matched. `filters.created_from`/
+    `_to` are the only date-range filters accepted (audit logs have no
+    `updated_at`); `filters.include_deleted` has no effect here (audit
+    logs cannot be deleted at all) and is accepted only because it's part
+    of the shared `SearchFilters` dependency every module reuses."""
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search(
+        organization_id=current_user.organization_id,
+        query=filters.q,
+        actions=action,
+        sources=source,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        actor_user_id=actor_user_id,
+        correlation_id=correlation_id,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        sort_by=sort_field,
+        sort_order=_effective_sort_order(sorting),
+        offset=pagination.offset,
+        limit=pagination.limit,
     )
     items = [AuditLogResponse.model_validate(s) for s in summaries]
-    return paginate_and_sort(
-        items, pagination=pagination, sorting=sorting, allowed_sort_fields=_SORT_FIELDS
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
     )
 
 
@@ -86,11 +129,21 @@ async def list_audit_logs_for_entity(
     sorting: Sorting,
     current_user: CurrentUser,
 ) -> PaginatedResponse[AuditLogResponse]:
-    summaries = await query_service.list_for_entity(entity_type=entity_type, entity_id=entity_id)
-    own_org_summaries = [s for s in summaries if s.organization_id == current_user.organization_id]
-    items = [AuditLogResponse.model_validate(s) for s in own_org_summaries]
-    return paginate_and_sort(
-        items, pagination=pagination, sorting=sorting, allowed_sort_fields=_SORT_FIELDS
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search(
+        organization_id=current_user.organization_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        sort_by=sort_field,
+        sort_order=_effective_sort_order(sorting),
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [AuditLogResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
     )
 
 
@@ -102,9 +155,18 @@ async def list_audit_logs_for_actor(
     sorting: Sorting,
     current_user: CurrentUser,
 ) -> PaginatedResponse[AuditLogResponse]:
-    summaries = await query_service.list_for_actor(actor_user_id)
-    own_org_summaries = [s for s in summaries if s.organization_id == current_user.organization_id]
-    items = [AuditLogResponse.model_validate(s) for s in own_org_summaries]
-    return paginate_and_sort(
-        items, pagination=pagination, sorting=sorting, allowed_sort_fields=_SORT_FIELDS
+    sort_field = resolve_sort_field(
+        sorting.sort_by, allowed_sort_fields=_SORT_FIELDS, default_field="created_at"
+    )
+    summaries, total = await query_service.search(
+        organization_id=current_user.organization_id,
+        actor_user_id=actor_user_id,
+        sort_by=sort_field,
+        sort_order=_effective_sort_order(sorting),
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    items = [AuditLogResponse.model_validate(s) for s in summaries]
+    return PaginatedResponse(
+        items=items, total=total, offset=pagination.offset, limit=pagination.limit
     )

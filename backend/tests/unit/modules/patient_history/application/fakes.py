@@ -7,7 +7,9 @@ as the default"). Application-layer use case/service tests depend on
 these, never on a real database or another module's facade.
 """
 
-from datetime import UTC, datetime
+from collections.abc import Sequence
+from datetime import UTC, date, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.clinical_notes.domain.enums import ClinicalNoteStatus, ClinicalNoteType
@@ -31,7 +33,7 @@ from app.modules.lab_results.domain.enums import LabResultStatus
 from app.modules.lab_results.public.dto import LabResultSummaryDTO
 from app.modules.lab_results.public.interfaces import LabResultQueryPort
 from app.modules.patient_history.domain.entities import PatientHistory
-from app.modules.patient_history.domain.enums import ReferenceType
+from app.modules.patient_history.domain.enums import HistoryType, ReferenceType
 from app.modules.patient_history.domain.repositories import PatientHistoryRepository
 from app.modules.prescriptions.domain.enums import PrescriptionStatus
 from app.modules.prescriptions.public.dto import PrescriptionSummaryDTO
@@ -64,6 +66,61 @@ class FakePatientHistoryRepository(PatientHistoryRepository):
     async def list_by_visit(self, visit_id: UUID) -> list[PatientHistory]:
         matches = [h for h in self._history.values() if h.visit_id == visit_id]
         return sorted(matches, key=lambda h: h.encounter_date)
+
+    async def search(
+        self,
+        *,
+        organization_id: UUID,
+        query: str | None = None,
+        history_types: Sequence[HistoryType] | None = None,
+        reference_types: Sequence[ReferenceType] | None = None,
+        patient_id: UUID | None = None,
+        visit_id: UUID | None = None,
+        doctor_review_id: UUID | None = None,
+        reference_id: UUID | None = None,
+        encounter_date_from: date | None = None,
+        encounter_date_to: date | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        updated_from: datetime | None = None,
+        updated_to: datetime | None = None,
+        include_deleted: bool = False,
+        sort_by: str = "encounter_date",
+        sort_order: Literal["asc", "desc"] = "asc",
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[PatientHistory], int]:
+        matches = [h for h in self._history.values() if h.organization_id == organization_id]
+        if history_types:
+            matches = [h for h in matches if h.history_type in history_types]
+        if reference_types:
+            matches = [h for h in matches if h.reference_type in reference_types]
+        if patient_id is not None:
+            matches = [h for h in matches if h.patient_id == patient_id]
+        if visit_id is not None:
+            matches = [h for h in matches if h.visit_id == visit_id]
+        if doctor_review_id is not None:
+            matches = [h for h in matches if h.doctor_review_id == doctor_review_id]
+        if reference_id is not None:
+            matches = [h for h in matches if h.reference_id == reference_id]
+        if encounter_date_from is not None:
+            matches = [h for h in matches if h.encounter_date >= encounter_date_from]
+        if encounter_date_to is not None:
+            matches = [h for h in matches if h.encounter_date <= encounter_date_to]
+        if created_from is not None:
+            matches = [h for h in matches if h.created_at >= created_from]
+        if created_to is not None:
+            matches = [h for h in matches if h.created_at <= created_to]
+        if updated_from is not None:
+            matches = [h for h in matches if h.updated_at >= updated_from]
+        if updated_to is not None:
+            matches = [h for h in matches if h.updated_at <= updated_to]
+        if query:
+            term = query.strip().lower()
+            matches = [h for h in matches if term in h.summary.lower()]
+        matches.sort(key=lambda h: getattr(h, sort_by, None) or "", reverse=sort_order == "desc")
+        total = len(matches)
+        return matches[offset : offset + limit], total
 
     async def add(self, history: PatientHistory) -> None:
         self._history[history.id] = history

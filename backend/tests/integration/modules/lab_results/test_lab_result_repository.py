@@ -210,6 +210,106 @@ class TestListByPatient:
         assert {r.result_number for r in results} == {"RES-PAT-A", "RES-PAT-B"}
 
 
+class TestLabResultSearch:
+    """Search & Filtering module — `SqlAlchemyLabResultRepository.search`."""
+
+    async def test_scopes_to_organization_and_filters_by_lab_order(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization, patient, doctor, visit, _note, lab_order, _item = await persist_full_chain(
+            db_session
+        )
+        (
+            _org2,
+            other_patient,
+            other_doctor,
+            other_visit,
+            _n2,
+            other_order,
+            _i2,
+        ) = await persist_full_chain(db_session)
+        repo = SqlAlchemyLabResultRepository(db_session)
+        result = LabResult.create(
+            organization_id=organization.id,
+            lab_order_id=lab_order.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            result_number=f"RES-{uuid4().hex[:12].upper()}",
+            reported_at=datetime(2026, 1, 2, 8, 0, tzinfo=UTC),
+            laboratory_name="Acme Labs",
+        )
+        other = LabResult.create(
+            organization_id=_org2.id,
+            lab_order_id=other_order.id,
+            patient_id=other_patient.id,
+            visit_id=other_visit.id,
+            doctor_id=other_doctor.id,
+            result_number=f"RES-{uuid4().hex[:12].upper()}",
+            reported_at=datetime(2026, 1, 2, 8, 0, tzinfo=UTC),
+        )
+        await repo.add(result)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id, lab_order_id=lab_order.id
+        )
+
+        assert total == 1
+        assert [r.id for r in results] == [result.id]
+
+    async def test_query_matches_laboratory_name_full_text(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, _note, lab_order, _item = await persist_full_chain(
+            db_session
+        )
+        repo = SqlAlchemyLabResultRepository(db_session)
+        result = LabResult.create(
+            organization_id=organization.id,
+            lab_order_id=lab_order.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            result_number=f"RES-{uuid4().hex[:12].upper()}",
+            reported_at=datetime(2026, 1, 2, 8, 0, tzinfo=UTC),
+            laboratory_name="Acme Diagnostics Laboratory",
+        )
+        await repo.add(result)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, query="Diagnostics")
+
+        assert total == 1
+        assert [r.id for r in results] == [result.id]
+
+    async def test_status_and_reported_date_range_filters(self, db_session: AsyncSession) -> None:
+        organization, patient, doctor, visit, _note, lab_order, _item = await persist_full_chain(
+            db_session
+        )
+        repo = SqlAlchemyLabResultRepository(db_session)
+        result = LabResult.create(
+            organization_id=organization.id,
+            lab_order_id=lab_order.id,
+            patient_id=patient.id,
+            visit_id=visit.id,
+            doctor_id=doctor.id,
+            result_number=f"RES-{uuid4().hex[:12].upper()}",
+            reported_at=datetime(2026, 6, 1, 8, 0, tzinfo=UTC),
+        )
+        result.finalize()
+        await repo.add(result)
+        await db_session.commit()
+
+        results, total = await repo.search(
+            organization_id=organization.id,
+            statuses=[LabResultStatus.FINAL],
+            reported_from=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+
+        assert total == 1
+        assert [r.id for r in results] == [result.id]
+
+
 class TestOneToOneUniqueness:
     async def test_a_second_lab_result_for_the_same_lab_order_violates_unique_index(
         self, db_session: AsyncSession
