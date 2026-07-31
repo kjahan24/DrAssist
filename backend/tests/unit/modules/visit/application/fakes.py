@@ -16,7 +16,11 @@ from app.modules.doctor.domain.enums import DoctorStatus
 from app.modules.doctor.public.dto import DoctorSummaryDTO
 from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.patient.domain.enums import Gender, PatientStatus
-from app.modules.patient.public.dto import PatientSummaryDTO
+from app.modules.patient.public.dto import (
+    PatientAllergySummaryDTO,
+    PatientMedicalConditionSummaryDTO,
+    PatientSummaryDTO,
+)
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.domain.entities import PatientVisit
 from app.modules.visit.domain.enums import VisitStatus
@@ -159,6 +163,14 @@ class FakePatientQueryPort(PatientQueryPort):
             date_of_birth=date(1990, 1, 1),
             status=PatientStatus.ACTIVE,
         )
+
+    async def list_allergies_for_patient(self, patient_id: UUID) -> list[PatientAllergySummaryDTO]:
+        return []
+
+    async def list_medical_conditions_for_patient(
+        self, patient_id: UUID
+    ) -> list[PatientMedicalConditionSummaryDTO]:
+        return []
 
 
 class FakeDoctorQueryPort(DoctorQueryPort):

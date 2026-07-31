@@ -21,7 +21,11 @@ from app.modules.authentication.public.interfaces import UserQueryPort
 from app.modules.doctor.application.dto import DoctorSummaryDTO
 from app.modules.doctor.domain.enums import DoctorStatus
 from app.modules.doctor.public.interfaces import DoctorQueryPort
-from app.modules.patient.application.dto import PatientSummaryDTO
+from app.modules.patient.application.dto import (
+    PatientAllergySummaryDTO,
+    PatientMedicalConditionSummaryDTO,
+    PatientSummaryDTO,
+)
 from app.modules.patient.domain.enums import Gender, PatientStatus
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.application.dto import VisitSummaryDTO
@@ -144,6 +148,14 @@ class FakePatientQueryPort(PatientQueryPort):
     async def get_patient_summary(self, patient_id: UUID) -> PatientSummaryDTO | None:
         return self.existing_patients.get(patient_id)
 
+    async def list_allergies_for_patient(self, patient_id: UUID) -> list[PatientAllergySummaryDTO]:
+        return []
+
+    async def list_medical_conditions_for_patient(
+        self, patient_id: UUID
+    ) -> list[PatientMedicalConditionSummaryDTO]:
+        return []
+
 
 class FakeDoctorQueryPort(DoctorQueryPort):
     def __init__(self, *, existing_doctors: dict[UUID, DoctorSummaryDTO] | None = None) -> None:
@@ -182,6 +194,9 @@ class FakeVisitQueryPort(VisitQueryPort):
 
     async def get_visit_summary(self, visit_id: UUID) -> VisitSummaryDTO | None:
         return self.existing_visits.get(visit_id)
+
+    async def list_visits_for_patient(self, patient_id: UUID) -> list[VisitSummaryDTO]:
+        return []
 
 
 def make_patient_summary(**overrides: object) -> PatientSummaryDTO:

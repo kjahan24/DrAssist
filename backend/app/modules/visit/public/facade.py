@@ -25,3 +25,6 @@ class VisitFacade(VisitQueryPort):
 
     async def get_visit_summary(self, visit_id: UUID) -> VisitSummaryDTO | None:
         return await self._query_service.get_visit_summary(visit_id)
+
+    async def list_visits_for_patient(self, patient_id: UUID) -> list[VisitSummaryDTO]:
+        return await self._query_service.list_visits_for_patient(patient_id)

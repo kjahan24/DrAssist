@@ -88,6 +88,23 @@ class MinioSettings(_EnvBaseSettings):
     use_ssl: bool = Field(default=False, alias="MINIO_USE_SSL")
 
 
+class LocalStorageSettings(_EnvBaseSettings):
+    """Configures `app.infrastructure.storage.local_storage_provider
+    .LocalStorageProvider` — the File Upload / Storage module's only
+    concrete `StoragePort` adapter. `base_path` is a filesystem root all
+    buckets are created under (e.g. `{base_path}/{bucket}/{object_name}`);
+    `max_upload_size_bytes` is an operational ceiling enforced by the
+    Documents module's upload use case, not a `StoragePort` concern
+    (a future S3/Azure/GCS adapter would enforce its own provider-specific
+    limit instead, so this setting deliberately isn't part of the port).
+    """
+
+    base_path: str = Field(default="./storage", alias="LOCAL_STORAGE_BASE_PATH")
+    max_upload_size_bytes: int = Field(
+        default=52_428_800, alias="LOCAL_STORAGE_MAX_UPLOAD_SIZE_BYTES"
+    )
+
+
 class GeminiSettings(_EnvBaseSettings):
     api_key: str = Field(alias="GEMINI_API_KEY")
     model: str = Field(default="gemini-2.5-pro", alias="GEMINI_MODEL")
@@ -133,6 +150,7 @@ class Settings(_EnvBaseSettings):
     qdrant: QdrantSettings = Field(default_factory=QdrantSettings)
     celery: CelerySettings = Field(default_factory=CelerySettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
+    local_storage: LocalStorageSettings = Field(default_factory=LocalStorageSettings)
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
     whisper: WhisperSettings = Field(default_factory=WhisperSettings)
     paddleocr: PaddleOCRSettings = Field(default_factory=PaddleOCRSettings)

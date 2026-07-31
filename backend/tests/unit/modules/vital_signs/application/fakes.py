@@ -89,6 +89,9 @@ class FakeVisitQueryPort(VisitQueryPort):
             visit_status=VisitStatus.SCHEDULED,
         )
 
+    async def list_visits_for_patient(self, patient_id: UUID) -> list[VisitSummaryDTO]:
+        return []
+
 
 class FakeDoctorQueryPort(DoctorQueryPort):
     """Backed by a settable map of "existing" doctor id -> organization

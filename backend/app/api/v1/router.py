@@ -23,6 +23,7 @@ from app.modules.differential_diagnosis.api.router import (
 )
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.doctor_review.api.router import router as doctor_review_router
+from app.modules.documents.api.router import router as documents_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
@@ -34,6 +35,7 @@ from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
 from app.modules.schedule.api.router import router as schedule_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
+from app.modules.timeline.api.router import router as timeline_router
 from app.modules.visit.api.router import router as visit_router
 from app.modules.vital_signs.api.router import router as vital_signs_router
 
@@ -77,3 +79,5 @@ api_router.include_router(appointment_router, prefix="/appointments", tags=["app
 api_router.include_router(schedule_router, prefix="/schedule", tags=["schedule"])
 api_router.include_router(notification_router, prefix="/notifications", tags=["notification"])
 api_router.include_router(audit_log_router, prefix="/audit-logs", tags=["audit-log"])
+api_router.include_router(documents_router, prefix="/documents", tags=["documents"])
+api_router.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
