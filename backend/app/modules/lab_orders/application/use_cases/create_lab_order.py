@@ -17,7 +17,7 @@ parent clinical note is `Signed`/`Locked`
 `ClinicalNoteNotEditableError`. `order_number` must be globally unique.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.application.dto import CreateLabOrderInput, CreateLabOrderOutput
 from app.modules.lab_orders.domain.entities import LabOrder

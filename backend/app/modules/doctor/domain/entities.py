@@ -323,6 +323,26 @@ class DoctorSpecialization(AggregateRoot):
 
 @dataclass(kw_only=True, eq=False)
 class DoctorSchedule(AggregateRoot):
+    """A doctor's own recurring weekly availability window (day, start/end
+    time, optional break).
+
+    **Deprecated in favor of `app.modules.schedule.domain.entities
+    .DoctorSchedule`.** The two classes share a name but not a shape: this
+    one has no `organization_id` and no slot-duration concept, so it
+    cannot support tenant-scoped queries or appointment-slot generation.
+    `app.modules.schedule`'s version is now the architecturally canonical,
+    go-forward owner of "doctor schedule/availability" — see
+    `docs/backend-architecture/14_doctor_schedule_ownership.md` for the
+    full decision record.
+
+    Retained completely unchanged (table, migration, repository, use
+    case, and the two live `POST/GET /doctors/{doctor_id}/schedule`
+    endpoints) rather than removed: no confirmed zero-consumer guarantee
+    exists for a public, already-shipped API, so removing it would risk
+    breaking an external caller. New code should depend on
+    `app.modules.schedule`'s `DoctorSchedule` instead.
+    """
+
     doctor_id: UUID
     day_of_week: DayOfWeek
     start_time: time

@@ -28,6 +28,7 @@ haven't already.
 12. **[11_standards_and_conventions.md](11_standards_and_conventions.md)** — folder responsibility index, coding standards, naming conventions, import rules
 13. **[12_testing_architecture.md](12_testing_architecture.md)** — unit / integration / contract / e2e testing strategy
 14. **[13_microservices_migration_path.md](13_microservices_migration_path.md)** — what makes extraction cheap, ranked candidates, the extraction playbook
+15. **[14_doctor_schedule_ownership.md](14_doctor_schedule_ownership.md)** — Architecture Review & Cleanup decision record: `DoctorSchedule` ownership (Doctor vs. Schedule/Availability) and cross-module boundary-leak fixes. Addendum, not part of the original 00–13 design set — the module count and table above predate the many modules built after this document set was first written and are not updated by this addendum.
 
 ## Requirement traceability (all 30 design areas)
 

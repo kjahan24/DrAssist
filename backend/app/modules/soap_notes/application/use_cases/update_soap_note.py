@@ -9,13 +9,15 @@ notion of editability rather than duplicating the Draft/In Review/
 Signed/Locked logic here — the single source of truth this task's
 business rules insist on ("Clinical Note status remains the source of
 truth for editability"). A rejected edit raises
-`app.modules.clinical_notes.domain.exceptions.ClinicalNoteNotEditableError`
-directly, the same cross-module exception-reuse pattern
-`create_soap_note.CreateSOAPNote` already establishes for the identical
-check.
+`ClinicalNoteNotEditableError`, reused rather than wrapped, imported
+from `clinical_notes.public.exceptions` (a re-export, not
+`clinical_notes.domain.exceptions` directly — see
+`docs/backend-architecture/10_module_communication.md`), the same
+cross-module exception-reuse pattern `create_soap_note.CreateSOAPNote`
+already establishes for the identical check.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.soap_notes.application.dto import UpdateSOAPNoteInput, UpdateSOAPNoteOutput
 from app.modules.soap_notes.domain.exceptions import SOAPNoteNotFoundError

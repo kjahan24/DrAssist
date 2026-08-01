@@ -22,9 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from app.infrastructure.database.session import async_session_factory
-from app.modules.authentication.application.dto import AuthenticatedPrincipalDTO
-from app.modules.authentication.application.exceptions import AuthenticationError
 from app.modules.authentication.container import build_authentication_facade
+from app.modules.authentication.public.dto import AuthenticatedPrincipalDTO
+from app.modules.authentication.public.exceptions import AuthenticationError
 from app.modules.authentication.public.facade import AuthenticationFacade
 
 _BEARER_PREFIX = "Bearer "

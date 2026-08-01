@@ -252,10 +252,17 @@ async def list_doctor_specializations(
     )
 
 
-# --- Schedule ----------------------------------------------------------------
+# --- Schedule (deprecated — see app.modules.doctor.domain.entities
+# .DoctorSchedule's own docstring and
+# docs/backend-architecture/14_doctor_schedule_ownership.md) -----------------
 
 
-@router.post("/{doctor_id}/schedule", response_model=DoctorScheduleResponse, status_code=201)
+@router.post(
+    "/{doctor_id}/schedule",
+    response_model=DoctorScheduleResponse,
+    status_code=201,
+    deprecated=True,
+)
 async def add_doctor_schedule(
     doctor_id: UUID,
     body: AddDoctorScheduleRequest,
@@ -273,7 +280,11 @@ async def add_doctor_schedule(
     return DoctorScheduleResponse.model_validate(summary)
 
 
-@router.get("/{doctor_id}/schedule", response_model=PaginatedResponse[DoctorScheduleResponse])
+@router.get(
+    "/{doctor_id}/schedule",
+    response_model=PaginatedResponse[DoctorScheduleResponse],
+    deprecated=True,
+)
 async def list_doctor_schedule(
     doctor_id: UUID,
     query_service: ScheduleQS,

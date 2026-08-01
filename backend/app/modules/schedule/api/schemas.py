@@ -1,10 +1,11 @@
 """Pydantic v2 request/response schemas for the Schedule/Availability
 module.
 
-Not yet wired to any route — `api/router.py` registers no endpoints in
-this phase (this task explicitly excludes API endpoints). Schemas never
-expose a domain entity directly, and never accept server-controlled
-fields (`id`, `organization_id`, `is_active`, ...) from the client — see
+Wired to `api/router.py`'s live endpoints (added by a later REST APIs
+task; this module's own founding task explicitly excluded HTTP endpoints
+— see `container.py`'s scope note). Schemas never expose a domain entity
+directly, and never accept server-controlled fields (`id`,
+`organization_id`, `is_active`, ...) from the client — see
 `docs/backend-architecture/07_security_layer.md §7` (mass-assignment
 prevention). `organization_id` in particular is never client-settable at
 all: it is always derived from the linked `Doctor` — see

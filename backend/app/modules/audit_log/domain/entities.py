@@ -62,6 +62,13 @@ class AuditLog(Entity):
     user_agent: str | None = None
     request_id: str | None = None
     correlation_id: str | None = None
+    # Not the persisted source of truth: `infrastructure.mappers
+    # .audit_log_to_model()` does not map this value onto `AuditLogModel`,
+    # which relies on `CreatedAtMixin`'s `server_default=func.now()`
+    # instead (see `infrastructure/models.py`). This in-memory default
+    # exists only so a freshly `record()`-ed, not-yet-persisted entity has
+    # a usable value; a round-trip through the repository always
+    # overwrites it with the database-generated timestamp.
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:

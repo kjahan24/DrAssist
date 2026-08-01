@@ -17,7 +17,7 @@ editing on an already-existing lab order, subject to the same "only Draft
 is editable" rule as any other mutation.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.application.dto import AddLabOrderItemInput, AddLabOrderItemOutput
 from app.modules.lab_orders.domain.entities import LabOrderItem

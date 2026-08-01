@@ -13,8 +13,10 @@ patient's own summary (never accepted as a separate, independently
 trustable input), matching how
 `app.modules.patient.application.use_cases.record_patient_allergy.RecordPatientAllergy`
 et al. derive it from the loaded `Patient`. A missing patient raises
-`PatientNotFoundError` directly, reused rather than wrapped (see
-`docs/backend-architecture/10_module_communication.md`).
+`PatientNotFoundError`, reused rather than wrapped, imported from
+`patient.public.exceptions` (a re-export, not `patient.domain.exceptions`
+directly — see `docs/backend-architecture/10_module_communication.md`,
+which forbids depending on a peer module's `domain/`).
 
 The doctor is resolved via `get_doctor_summary` (not the cheaper
 `doctor_exists`) so its `organization_id` can be compared against the
@@ -26,9 +28,9 @@ already uses for `UserNotFoundError`, so a cross-tenant reference never
 leaks whether the doctor id exists at all in another organization.
 """
 
-from app.modules.doctor.domain.exceptions import DoctorNotFoundError
+from app.modules.doctor.public.exceptions import DoctorNotFoundError
 from app.modules.doctor.public.interfaces import DoctorQueryPort
-from app.modules.patient.domain.exceptions import PatientNotFoundError
+from app.modules.patient.public.exceptions import PatientNotFoundError
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.visit.application.dto import ScheduleVisitInput, ScheduleVisitOutput
 from app.modules.visit.domain.entities import PatientVisit

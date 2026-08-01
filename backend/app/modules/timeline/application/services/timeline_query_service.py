@@ -35,7 +35,7 @@ from typing import Literal
 from uuid import UUID
 
 from app.modules.appointment.public.interfaces import AppointmentQueryPort
-from app.modules.documents.domain.enums import DocumentCategory
+from app.modules.documents.public.enums import DocumentCategory
 from app.modules.patient.public.interfaces import PatientQueryPort
 from app.modules.timeline.application.dto import (
     TimelineEventDTO,

@@ -9,7 +9,7 @@ established for this codebase, reused here rather than inventing a new
 one (see `docs/backend-architecture/10_module_communication.md`).
 """
 
-from app.modules.organization.domain.exceptions import OrganizationNotFoundError
+from app.modules.organization.public.exceptions import OrganizationNotFoundError
 from app.modules.organization.public.interfaces import OrganizationQueryPort
 from app.modules.patient.application.dto import RegisterPatientInput, RegisterPatientOutput
 from app.modules.patient.domain.entities import Patient

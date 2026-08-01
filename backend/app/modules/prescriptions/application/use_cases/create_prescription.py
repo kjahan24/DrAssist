@@ -13,15 +13,18 @@ locally — see `domain/exceptions.py` for why).
 
 Creation is blocked once the parent clinical note is `Signed`/`Locked`
 (`ClinicalNoteQueryPort.is_editable`), raising
-`app.modules.clinical_notes.domain.exceptions.ClinicalNoteNotEditableError`
-— reused rather than wrapped, the same cross-module exception-reuse
-pattern `CreateSOAPNote` already established. `prescription_number` must
-also be globally unique, the same treatment
+`ClinicalNoteNotEditableError` — reused rather than wrapped, imported
+from `clinical_notes.public.exceptions` (a re-export, not
+`clinical_notes.domain.exceptions` directly — see
+`docs/backend-architecture/10_module_communication.md`), the same
+cross-module exception-reuse pattern `CreateSOAPNote` already
+established. `prescription_number` must also be globally unique, the
+same treatment
 `app.modules.clinical_notes.application.use_cases.create_clinical_note
 .CreateClinicalNote` gives `note_number`.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.prescriptions.application.dto import (
     CreatePrescriptionInput,

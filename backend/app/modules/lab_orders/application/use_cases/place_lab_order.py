@@ -16,7 +16,7 @@ itself a write) and `LabOrder.ensure_editable()` (an order that is no
 longer Draft cannot be re-placed).
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.application.dto import LabOrderStatusOutput, PlaceLabOrderInput
 from app.modules.lab_orders.domain.exceptions import (

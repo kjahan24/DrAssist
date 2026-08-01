@@ -15,16 +15,19 @@ clinical note raises `ClinicalNoteNotFoundError` (defined locally — see
 Creation is blocked once the parent clinical note is `Signed`/`Locked`
 (`ClinicalNoteQueryPort.is_editable`, reused directly from
 `app.modules.clinical_notes.public.interfaces`), raising
-`app.modules.clinical_notes.domain.exceptions.ClinicalNoteNotEditableError`
-— reused rather than wrapped, the same cross-module exception-reuse
-pattern every prior module established for `PatientVisitNotFoundError`/
-`DoctorNotFoundError`. Attaching fresh, editable SOAP content to an
-already-finalized note would itself be a write the "read-only" rule is
-meant to prevent, even though the business rules phrase that rule in
-terms of *editing* an existing SOAP note rather than *creating* one.
+`ClinicalNoteNotEditableError` — reused rather than wrapped, imported
+from `clinical_notes.public.exceptions` (a re-export, not
+`clinical_notes.domain.exceptions` directly — see
+`docs/backend-architecture/10_module_communication.md`), the same
+cross-module exception-reuse pattern every prior module established for
+`PatientVisitNotFoundError`/`DoctorNotFoundError`. Attaching fresh,
+editable SOAP content to an already-finalized note would itself be a
+write the "read-only" rule is meant to prevent, even though the business
+rules phrase that rule in terms of *editing* an existing SOAP note
+rather than *creating* one.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.soap_notes.application.dto import CreateSOAPNoteInput, CreateSOAPNoteOutput
 from app.modules.soap_notes.domain.entities import SOAPNote

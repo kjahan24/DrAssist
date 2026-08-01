@@ -1,11 +1,15 @@
 """Pydantic v2 request/response schemas for the Doctor module.
 
-Not yet wired to any route — `api/router.py` registers no endpoints in
-this phase. Schemas never expose a domain entity directly, and never
-accept server-controlled fields (`id`, `status`, `verification_status`,
-...) from the client — see
+Wired to `api/router.py`'s live endpoints. Schemas never expose a domain
+entity directly, and never accept server-controlled fields (`id`,
+`status`, `verification_status`, ...) from the client — see
 `docs/backend-architecture/07_security_layer.md §7` (mass-assignment
 prevention).
+
+`DoctorScheduleResponse`/`AddDoctorScheduleRequest` back the module's
+deprecated schedule endpoints — see
+`app.modules.doctor.domain.entities.DoctorSchedule`'s own docstring and
+`docs/backend-architecture/14_doctor_schedule_ownership.md`.
 """
 
 from datetime import date, time

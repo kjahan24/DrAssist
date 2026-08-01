@@ -14,7 +14,7 @@ mutable here; `prescription_number` and every identity field are
 immutable once set — see `domain/entities.py`.
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.prescriptions.application.dto import (
     UpdatePrescriptionInput,

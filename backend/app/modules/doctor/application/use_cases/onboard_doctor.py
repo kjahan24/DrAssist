@@ -11,7 +11,7 @@ on") and `10_module_communication.md`, used here for the first time in
 this codebase.
 """
 
-from app.modules.authentication.domain.exceptions import UserNotFoundError
+from app.modules.authentication.public.exceptions import UserNotFoundError
 from app.modules.authentication.public.interfaces import UserQueryPort
 from app.modules.doctor.application.dto import OnboardDoctorInput, OnboardDoctorOutput
 from app.modules.doctor.domain.entities import Doctor, DoctorProfile
@@ -20,7 +20,7 @@ from app.modules.doctor.domain.exceptions import (
     UserAlreadyHasDoctorProfileError,
 )
 from app.modules.doctor.domain.repositories import DoctorProfileRepository, DoctorRepository
-from app.modules.organization.domain.exceptions import OrganizationNotFoundError
+from app.modules.organization.public.exceptions import OrganizationNotFoundError
 from app.modules.organization.public.interfaces import OrganizationQueryPort
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.application.use_case import UseCase

@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from app.modules.documents.domain.enums import DocumentCategory
+from app.modules.documents.public.enums import DocumentCategory
 from app.modules.timeline.domain.enums import (
     TimelineEventCategory,
     TimelineEventType,

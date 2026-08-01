@@ -12,7 +12,7 @@ and
 (see `docs/backend-architecture/10_module_communication.md`).
 """
 
-from app.modules.doctor.domain.exceptions import DoctorNotFoundError
+from app.modules.doctor.public.exceptions import DoctorNotFoundError
 from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.modules.patient.application.dto import (
     AddPatientMedicalConditionInput,

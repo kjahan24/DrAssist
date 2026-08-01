@@ -13,7 +13,7 @@ already draws between `update_details()` (Draft-only) and
 `sign()`/`lock()` (each with its own distinct precondition).
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.application.dto import LabOrderStatusOutput, MarkLabOrderCollectedInput
 from app.modules.lab_orders.domain.exceptions import LabOrderNotFoundError

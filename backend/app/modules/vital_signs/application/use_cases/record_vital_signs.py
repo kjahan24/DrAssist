@@ -8,9 +8,11 @@ Unlike the Patient module's sub-resource use cases (which read the parent
 `app.modules.visit.application.use_cases.schedule_visit.ScheduleVisit`
 established for this codebase. `organization_id` is derived from the
 visit's own summary (never accepted as a separate, independently
-trustable input). A missing visit raises `PatientVisitNotFoundError`
-directly, reused rather than wrapped (see
-`docs/backend-architecture/10_module_communication.md`).
+trustable input). A missing visit raises `PatientVisitNotFoundError`,
+reused rather than wrapped, imported from `visit.public.exceptions` (a
+re-export, not `visit.domain.exceptions` directly — see
+`docs/backend-architecture/10_module_communication.md`, which forbids
+depending on a peer module's `domain/`).
 
 When `recorded_by` is provided, it is resolved via `get_doctor_summary`
 (not the cheaper `doctor_exists`) so its `organization_id` can be
@@ -22,9 +24,9 @@ same cross-tenant-as-not-found pattern
 already established for its own `doctor_id`.
 """
 
-from app.modules.doctor.domain.exceptions import DoctorNotFoundError
+from app.modules.doctor.public.exceptions import DoctorNotFoundError
 from app.modules.doctor.public.interfaces import DoctorQueryPort
-from app.modules.visit.domain.exceptions import PatientVisitNotFoundError
+from app.modules.visit.public.exceptions import PatientVisitNotFoundError
 from app.modules.visit.public.interfaces import VisitQueryPort
 from app.modules.vital_signs.application.dto import (
     RecordVisitVitalSignsInput,

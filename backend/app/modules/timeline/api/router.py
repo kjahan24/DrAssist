@@ -31,7 +31,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, ensure_same_organization
 from app.core.exceptions import NotFoundError
-from app.modules.documents.domain.enums import DocumentCategory
+from app.modules.documents.public.enums import DocumentCategory
 from app.modules.timeline.api.dependencies import PatientPort, QueryService
 from app.modules.timeline.api.schemas import TimelineEventResponse
 from app.modules.timeline.application.dto import TimelineFilterInput

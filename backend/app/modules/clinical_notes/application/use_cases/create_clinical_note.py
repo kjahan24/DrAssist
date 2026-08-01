@@ -22,9 +22,11 @@ Unlike the Patient module's sub-resource use cases (which read the parent
 `app.modules.attachments.application.use_cases.upload_attachment.UploadVisitAttachment`
 established for this codebase. `organization_id` is derived from the
 visit's own summary (never accepted as a separate, independently
-trustable input). A missing visit raises `PatientVisitNotFoundError`
-directly, reused rather than wrapped (see
-`docs/backend-architecture/10_module_communication.md`).
+trustable input). A missing visit raises `PatientVisitNotFoundError`,
+reused rather than wrapped, imported from `visit.public.exceptions` (a
+re-export, not `visit.domain.exceptions` directly — see
+`docs/backend-architecture/10_module_communication.md`, which forbids
+depending on a peer module's `domain/`).
 
 `doctor_id` is resolved via `get_doctor_summary` (not the cheaper
 `doctor_exists`) so its `organization_id` can be compared against the
@@ -44,9 +46,9 @@ from app.modules.clinical_notes.domain.exceptions import (
     VisitPatientMismatchError,
 )
 from app.modules.clinical_notes.domain.repositories import ClinicalNoteRepository
-from app.modules.doctor.domain.exceptions import DoctorNotFoundError
+from app.modules.doctor.public.exceptions import DoctorNotFoundError
 from app.modules.doctor.public.interfaces import DoctorQueryPort
-from app.modules.visit.domain.exceptions import PatientVisitNotFoundError
+from app.modules.visit.public.exceptions import PatientVisitNotFoundError
 from app.modules.visit.public.interfaces import VisitQueryPort
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.application.use_case import UseCase

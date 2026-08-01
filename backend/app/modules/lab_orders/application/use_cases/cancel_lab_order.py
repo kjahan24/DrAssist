@@ -10,7 +10,7 @@ already-`Collected` or already-`Cancelled` order, the same "not gated by
 its own transition).
 """
 
-from app.modules.clinical_notes.domain.exceptions import ClinicalNoteNotEditableError
+from app.modules.clinical_notes.public.exceptions import ClinicalNoteNotEditableError
 from app.modules.clinical_notes.public.interfaces import ClinicalNoteQueryPort
 from app.modules.lab_orders.application.dto import CancelLabOrderInput, LabOrderStatusOutput
 from app.modules.lab_orders.domain.exceptions import LabOrderNotFoundError

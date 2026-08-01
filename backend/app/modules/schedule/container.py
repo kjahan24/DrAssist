@@ -68,6 +68,24 @@ Clinical Reasoning, Differential Diagnosis, ICD-10 Coding, Doctor
 Review, Patient History, or Appointment modules or their tables — this
 module only *reads* Doctor through its public port.
 
+**Update — the ownership decision above has now been made** by the
+Architecture Review & Cleanup task (see
+`docs/backend-architecture/14_doctor_schedule_ownership.md`): this
+module's `DoctorSchedule`/`DoctorTimeOff` are the canonical, go-forward
+owner of "doctor schedule/availability" — they alone are tenant-scoped
+and alone carry `slot_duration_minutes`, satisfying this codebase's own
+load-bearing multi-tenancy convention and the stated future need to
+generate bookable appointment slots.
+`app.modules.doctor.domain.entities.DoctorSchedule` is now formally
+deprecated (see its own docstring) but intentionally left running,
+unmigrated, and fully backward-compatible: no confirmed zero-consumer
+guarantee exists for its two live REST endpoints, so removing or
+rewriting it was out of scope for a review task bound by "never modify
+public APIs unless absolutely necessary" and "never rewrite migration
+history." No schema, table, or route in either module changed as a
+result of this decision — it is a documentation-only clarification of
+an already-existing state.
+
 Calendar, Appointment Booking, Google Calendar, Outlook Calendar,
 Holiday Management, Recurring Availability, Resource Scheduling, and
 Notification Module are explicitly out of scope for this task — they
