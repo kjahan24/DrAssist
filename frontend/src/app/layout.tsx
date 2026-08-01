@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+
 import "./globals.css";
+import { Providers } from "@/app/providers";
 import { siteConfig } from "@/config/site";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+
 export const metadata: Metadata = {
-  title: siteConfig.name,
+  title: {
+    default: siteConfig.name,
+    template: `%s | ${siteConfig.name}`,
+  },
   description: siteConfig.description,
 };
 
@@ -14,7 +22,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased">{children}</body>
+      <body className={`${inter.variable} min-h-screen bg-background font-sans antialiased`}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,6 @@
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-export const QUERY_KEYS = {
-  // Populated as data-fetching hooks are added under src/features/*.
-} as const;
+// Name of the client-readable cookie `lib/auth/token-storage.ts` and
+// `middleware.ts` both read — shared here so the two never drift apart.
+export const AUTH_TOKEN_COOKIE = "drassist_access_token";

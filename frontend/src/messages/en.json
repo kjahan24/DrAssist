@@ -1,0 +1,22 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "search": "Search",
+    "noResults": "No results found"
+  },
+  "nav": {
+    "dashboard": "Dashboard"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "signInDescription": "Sign in to your DrAssist account"
+  }
+}
