@@ -24,6 +24,7 @@ from app.modules.differential_diagnosis.api.router import (
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.documents.api.router import router as documents_router
+from app.modules.family_access.api.router import router as family_access_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
@@ -81,3 +82,4 @@ api_router.include_router(notification_router, prefix="/notifications", tags=["n
 api_router.include_router(audit_log_router, prefix="/audit-logs", tags=["audit-log"])
 api_router.include_router(documents_router, prefix="/documents", tags=["documents"])
 api_router.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
+api_router.include_router(family_access_router, prefix="/family-access", tags=["family-access"])
