@@ -47,13 +47,21 @@ httpClient.interceptors.response.use(
 
       // A 401 means the token is missing/expired/revoked — the backend's
       // `get_current_user` dependency is the sole source of truth here,
-      // never a client-side expiry check. Clearing state and bouncing to
-      // `/login` is a hard redirect (not a router push) so it also works
-      // from outside React's render tree, e.g. a TanStack Query retry.
+      // never a client-side expiry check. Clearing state and bouncing out
+      // is a hard redirect (not a router push) so it also works from
+      // outside React's render tree, e.g. a TanStack Query retry.
+      //
+      // Distinguishing the two 401 cases matters for UX: a request that
+      // had a token which the backend then rejected means a real session
+      // just ended (`/session-expired`, which explains what happened and
+      // offers a way back in); a request with no token at all was never
+      // authenticated in the first place, so a plain `/login` is correct
+      // with no extra explanation needed.
       if (status === 401) {
+        const hadToken = Boolean(tokenStorage.get());
         tokenStorage.clear();
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          window.location.href = hadToken ? "/session-expired" : "/login";
         }
       }
 

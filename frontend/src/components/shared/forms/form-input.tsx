@@ -20,6 +20,7 @@ interface FormInputProps<TFieldValues extends FieldValues> {
   type?: string;
   placeholder?: string;
   disabled?: boolean;
+  autoComplete?: string;
 }
 
 // Composes FormField/FormItem/FormLabel/FormControl/FormMessage
@@ -33,6 +34,7 @@ export function FormInput<TFieldValues extends FieldValues>({
   type = "text",
   placeholder,
   disabled,
+  autoComplete,
 }: FormInputProps<TFieldValues>) {
   return (
     <FormField
@@ -42,7 +44,13 @@ export function FormInput<TFieldValues extends FieldValues>({
         <FormItem>
           {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
-            <Input type={type} placeholder={placeholder} disabled={disabled} {...field} />
+            <Input
+              type={type}
+              placeholder={placeholder}
+              disabled={disabled}
+              autoComplete={autoComplete}
+              {...field}
+            />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
