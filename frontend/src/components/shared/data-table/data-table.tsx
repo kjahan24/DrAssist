@@ -1,7 +1,17 @@
 "use client";
 
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import {
+  type ColumnDef,
+  type OnChangeFn,
+  type SortingState,
+  type VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 
+import { DataTablePagination } from "@/components/shared/data-table/data-table-pagination";
+import { TableSkeleton } from "@/components/shared/states/table-skeleton";
 import {
   Table,
   TableBody,
@@ -10,8 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DataTablePagination } from "@/components/shared/data-table/data-table-pagination";
-import { TableSkeleton } from "@/components/shared/states/table-skeleton";
 
 interface DataTablePaginationState {
   pageIndex: number;
@@ -26,6 +34,16 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean;
   emptyMessage?: string;
   pagination?: DataTablePaginationState;
+  // Both optional and both "manual" (server-shaped), not TanStack's own
+  // client-side sorted/row models: this project's tables are paginated
+  // server-side (real or mocked — see `lib/mock/*`), so sorting only the
+  // current page's rows client-side would be wrong. Omitting both keeps
+  // every existing/future non-sortable, non-column-toggleable consumer
+  // byte-for-byte unchanged.
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
 }
 
 // Thin wrapper over TanStack Table for this project's dominant case:
@@ -39,12 +57,23 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   emptyMessage = "No results found.",
   pagination,
+  sorting,
+  onSortingChange,
+  columnVisibility,
+  onColumnVisibilityChange,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
+    manualSorting: true,
+    onSortingChange,
+    onColumnVisibilityChange,
+    state: {
+      ...(sorting !== undefined && { sorting }),
+      ...(columnVisibility !== undefined && { columnVisibility }),
+    },
   });
 
   return (
