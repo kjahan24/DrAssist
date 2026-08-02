@@ -8,9 +8,11 @@ import {
   FileStack,
   FileText,
   FlaskConical,
+  HelpCircle,
   History,
   LayoutDashboard,
   ListChecks,
+  Mail,
   Microscope,
   Paperclip,
   Pill,
@@ -104,6 +106,21 @@ export const navigation: NavGroup[] = [
       { title: "Notifications", href: "/dashboard/notifications", icon: Bell },
       { title: "Audit Log", href: "/dashboard/audit-logs", icon: ScrollText },
       { title: "Settings", href: "/dashboard/settings", icon: Settings },
+      {
+        // A toggle-only parent (its own `href` is never rendered as a
+        // link — see `components/dashboard/sidebar-item.tsx`) — the one
+        // deliberate example of nested navigation in this nav, and the
+        // only genuinely new item this module adds. Its children point
+        // at real, already-built marketing pages rather than yet more
+        // placeholder dead links.
+        title: "Help",
+        href: "/dashboard/help",
+        icon: HelpCircle,
+        items: [
+          { title: "FAQ", href: "/faq", icon: HelpCircle },
+          { title: "Contact Support", href: "/contact", icon: Mail },
+        ],
+      },
     ],
   },
 ];

@@ -1,5 +1,6 @@
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SectionCard } from "@/components/dashboard/section-card";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = { title: "Settings" };
 
@@ -9,19 +10,10 @@ export const metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your application preferences.</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Switch between light, dark, or system theme.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ThemeToggle />
-        </CardContent>
-      </Card>
+      <PageHeader title="Settings" description="Manage your application preferences." />
+      <SectionCard title="Appearance" description="Switch between light, dark, or system theme.">
+        <ThemeToggle />
+      </SectionCard>
     </div>
   );
 }
