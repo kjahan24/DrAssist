@@ -9,6 +9,7 @@ import {
   type SOAPNoteStatus,
   createSoapNote,
   getSoapNote,
+  getSoapNoteByClinicalNoteId,
   listSoapNotes,
   updateSoapNote,
 } from "@/lib/mock/soap-notes";
@@ -30,6 +31,17 @@ export function useSoapNote(soapNoteId: string) {
     queryKey: soapNoteKeys.detail(soapNoteId),
     queryFn: () => getSoapNote(soapNoteId),
     enabled: Boolean(soapNoteId),
+  });
+}
+
+// Used by the Lab Reports module to resolve a lab order's "Related SOAP
+// Note" via the clinical note it's already linked to — see
+// `getSoapNoteByClinicalNoteId()`'s own docstring.
+export function useSoapNoteByClinicalNote(clinicalNoteId: string) {
+  return useQuery({
+    queryKey: [...soapNoteKeys.all, "by-clinical-note", clinicalNoteId],
+    queryFn: () => getSoapNoteByClinicalNoteId(clinicalNoteId),
+    enabled: Boolean(clinicalNoteId),
   });
 }
 

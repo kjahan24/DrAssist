@@ -471,6 +471,20 @@ export function getSoapNote(soapNoteId: string): Promise<SOAPNoteDetail | null> 
   return mockFetch(found, 300);
 }
 
+// Added for the Lab Reports module (`lib/mock/lab-reports.ts`): a lab
+// order's "Related SOAP Note" section needs to resolve a SOAP note from
+// the same `clinical_note_id` a lab order already carries directly —
+// SOAP Note is one-to-one with Clinical Note in the real backend, so
+// this is the lookup that makes that resolution possible client-side.
+// Mirrors `lib/mock/clinical-notes.ts`'s `getClinicalNoteByVisitId()`
+// exactly, just keyed by `clinical_note_id` instead.
+export function getSoapNoteByClinicalNoteId(
+  clinicalNoteId: string,
+): Promise<SOAPNoteDetail | null> {
+  const found = soapNotes.find((note) => note.clinical_note_id === clinicalNoteId) ?? null;
+  return mockFetch(found, 200);
+}
+
 // --- Repository: writes -------------------------------------------------
 // `patient_id`/`doctor_id`/`clinical_note_id` are deliberately absent
 // from this input shape — mirroring the real entity, they're derived
