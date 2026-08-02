@@ -19,6 +19,18 @@ export function formatRelativeTime(value: string | Date): string {
   return formatDistanceToNow(toDate(value), { addSuffix: true });
 }
 
+// For "HH:mm" time-only strings (e.g. `Appointment.start_time`) that
+// aren't part of a full ISO datetime, so `toDate`/`format` can't be used
+// directly.
+export function formatTime(value: string): string {
+  const [hoursText, minutesText] = value.split(":");
+  const hours = Number(hoursText);
+  const minutes = Number(minutesText);
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
