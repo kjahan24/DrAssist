@@ -9,21 +9,35 @@ import { AUTH_TOKEN_COOKIE } from "@/lib/constants";
 // validity) — so it can only ever produce a misleading redirect, never a
 // false grant of access. See `lib/auth/token-storage.ts` for why a cookie
 // (not localStorage) is what makes this possible at all.
-const PUBLIC_ROUTES = ["/login"];
+//
+// Allowlist-shaped on purpose: only `/dashboard/*` is actually protected,
+// and `/login` is public-but-redirects-away-if-authenticated. Everything
+// else (the marketing site, and any unrecognized path) falls straight
+// through to Next.js's own router — otherwise a typo'd marketing URL like
+// `/pricng` would bounce a visitor to a login form instead of a normal
+// 404, which is exactly the bug an earlier, denylist-shaped version of
+// this file had.
+const AUTH_ONLY_ROUTE = "/login";
+const PROTECTED_PREFIX = "/dashboard";
+
+function isProtectedRoute(pathname: string): boolean {
+  return pathname === PROTECTED_PREFIX || pathname.startsWith(`${PROTECTED_PREFIX}/`);
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasToken = request.cookies.has(AUTH_TOKEN_COOKIE);
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
 
-  if (!hasToken && !isPublicRoute) {
+  if (pathname === AUTH_ONLY_ROUTE) {
+    return hasToken
+      ? NextResponse.redirect(new URL("/dashboard", request.url))
+      : NextResponse.next();
+  }
+
+  if (isProtectedRoute(pathname) && !hasToken) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (hasToken && isPublicRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
