@@ -8,6 +8,7 @@ import {
   type ClinicalNoteListParams,
   createClinicalNote,
   getClinicalNote,
+  getClinicalNoteByVisitId,
   listClinicalNotes,
   updateClinicalNote,
 } from "@/lib/mock/clinical-notes";
@@ -29,6 +30,16 @@ export function useClinicalNote(clinicalNoteId: string) {
     queryKey: clinicalNoteKeys.detail(clinicalNoteId),
     queryFn: () => getClinicalNote(clinicalNoteId),
     enabled: Boolean(clinicalNoteId),
+  });
+}
+
+// Used by the SOAP Notes module's form to derive `clinical_note_id` from
+// a selected visit — see `getClinicalNoteByVisitId()`'s own docstring.
+export function useClinicalNoteByVisit(visitId: string) {
+  return useQuery({
+    queryKey: [...clinicalNoteKeys.all, "by-visit", visitId],
+    queryFn: () => getClinicalNoteByVisitId(visitId),
+    enabled: Boolean(visitId),
   });
 }
 

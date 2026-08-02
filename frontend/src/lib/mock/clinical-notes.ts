@@ -579,6 +579,18 @@ export function getClinicalNote(clinicalNoteId: string): Promise<ClinicalNoteDet
   return mockFetch(found, 300);
 }
 
+// Added for the SOAP Notes module (`lib/mock/soap-notes.ts`): a SOAP
+// note's `clinical_note_id` is derived from its visit, the same way the
+// real `SOAPNote` entity derives all of its identity FKs from its parent
+// `ClinicalNote` server-side — this is the lookup that makes that
+// derivation possible client-side. Mirrors `getClinicalNote()` exactly,
+// just keyed by `visit_id` instead (a visit has at most one clinical
+// note in this mock, matching every visit-with-a-note in the seed data).
+export function getClinicalNoteByVisitId(visitId: string): Promise<ClinicalNoteDetail | null> {
+  const found = clinicalNotes.find((note) => note.visit_id === visitId) ?? null;
+  return mockFetch(found, 200);
+}
+
 // --- Repository: writes -------------------------------------------------
 // Deliberately the same field set the real `CreateClinicalNoteRequest`
 // accepts — see this file's own docstring. `status` is never client-set
