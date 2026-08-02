@@ -1,25 +1,16 @@
 import axios, { type AxiosError } from "axios";
 
+import { ApiError } from "@/lib/api-error";
 import { tokenStorage } from "@/lib/auth/token-storage";
 import { env } from "@/config/env";
 import type { ApiErrorResponse } from "@/types";
 
-// Normalized shape every failed request rejects with, regardless of
-// whether the backend returned a structured error body, a plain HTTP
-// failure, or the request never reached the server at all. Mirrors
-// `app.middlewares.error_handler`'s `{error_code, message, details?}`
-// JSON shape exactly — see that file for the backend-side contract.
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly errorCode: string,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+// Re-exported so existing consumers that need both the error type and
+// the live client (`import { ApiError, httpClient } from
+// "@/lib/api-client"` — the real backend-integrated auth pages) don't
+// need two import lines. See `lib/api-error.ts` for why the class itself
+// lives there instead of here.
+export { ApiError };
 
 // Single Axios instance every feature module's API client is built on top
 // of. Feature modules should never construct their own instance — that

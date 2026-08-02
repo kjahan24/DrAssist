@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api-error";
 
 // A fresh QueryClient per call — required for SSR/RSC (a module-level
 // singleton would leak cached data across requests/users); `providers.tsx`

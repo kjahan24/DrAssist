@@ -1,6 +1,6 @@
 import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api-error";
 
 interface PydanticValidationIssue {
   loc: (string | number)[];
