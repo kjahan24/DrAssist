@@ -1,19 +1,15 @@
-import { PageHeader } from "@/components/dashboard/page-header";
-import { SectionCard } from "@/components/dashboard/section-card";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import type { Metadata } from "next";
 
-export const metadata = { title: "Settings" };
+import { SettingsOverviewContent } from "@/features/settings/components/settings-overview-content";
 
-// The one settings section that's genuinely infrastructure, not a
-// business module: appearance. Profile/organization/notification
-// preferences etc. belong to their owning modules once those are built.
+export const metadata: Metadata = { title: "Settings" };
+
+// The old placeholder here was a bare Appearance/`ThemeToggle` card
+// (Module 1) with its own docstring noting "Profile/organization/
+// notification preferences etc. belong to their owning modules once
+// those are built" — that hand-off is this module. Theme now lives in
+// `ThemeSelector` on `/dashboard/settings/preferences`; this page is the
+// navigational hub linking into Profile/Account/Security/Preferences.
 export default function SettingsPage() {
-  return (
-    <div className="max-w-2xl space-y-6">
-      <PageHeader title="Settings" description="Manage your application preferences." />
-      <SectionCard title="Appearance" description="Switch between light, dark, or system theme.">
-        <ThemeToggle />
-      </SectionCard>
-    </div>
-  );
+  return <SettingsOverviewContent />;
 }
