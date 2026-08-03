@@ -95,7 +95,7 @@ export const navigation: NavGroup[] = [
     title: "People & Access",
     items: [
       { title: "Doctors", href: "/dashboard/doctors", icon: UserSquare2 },
-      { title: "Organizations", href: "/dashboard/organizations", icon: Building2 },
+      { title: "Organization", href: "/dashboard/organization", icon: Building2 },
       { title: "Family Access", href: "/dashboard/family", icon: UsersRound },
       { title: "Users & Roles", href: "/dashboard/access-control", icon: ShieldCheck },
     ],
