@@ -2,15 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SettingsSection } from "@/features/settings/components/settings-section";
 import { formatDate } from "@/lib/format";
 import type { DoctorProfile } from "@/lib/mock/profile";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 // The read-only view of the current user's profile — `/dashboard/profile`
 // shows this by default, switching to `ProfileForm` when "Edit Profile"

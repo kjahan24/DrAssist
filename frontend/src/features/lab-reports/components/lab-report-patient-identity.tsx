@@ -2,15 +2,7 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { LabReport } from "@/lib/mock/lab-reports";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 // The combined avatar + name identity cell for the "Patient" column —
 // used as `lab-report-columns.tsx`'s cell renderer and reused as-is in

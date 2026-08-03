@@ -23,6 +23,7 @@ import {
   type Member,
   type MemberStatus,
 } from "@/lib/mock/members";
+import { getInitials } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -34,15 +35,6 @@ function resolveSortField(columnId: string): SortField {
   if (columnId === "department_name") return "department_name";
   if (columnId === "status") return "status";
   return "last_active_at";
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }
 
 const STATUS_TO_GENERIC: Record<Member["status"], "active" | "inactive"> = {

@@ -1,17 +1,11 @@
-import { Download, File, FileImage, FileSpreadsheet, FileText } from "lucide-react";
+import { Download } from "lucide-react";
 
 import { SectionCard } from "@/components/dashboard/section-card";
 import { Button } from "@/components/ui/button";
+import { getDocumentMimeIcon } from "@/features/documents/lib/document-visuals";
 import { showSimulatedDownloadToast } from "@/features/documents/lib/simulated-download";
 import { formatFileSize } from "@/lib/format";
 import type { MedicalDocumentDetail } from "@/lib/mock/documents";
-
-function resolveIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return FileImage;
-  if (mimeType === "application/pdf" || mimeType.startsWith("text/")) return FileText;
-  if (mimeType.includes("spreadsheet") || mimeType.includes("csv")) return FileSpreadsheet;
-  return File;
-}
 
 // The large, dedicated "Preview Panel" on the document detail page —
 // `DocumentPreview`'s bigger counterpart. No file bytes are ever
@@ -19,7 +13,7 @@ function resolveIcon(mimeType: string) {
 // (icon + filename + metadata) rather than a real rendered file, with a
 // Download action that's simulated via `showSimulatedDownloadToast`.
 export function DocumentViewer({ document }: { document: MedicalDocumentDetail }) {
-  const Icon = resolveIcon(document.mime_type);
+  const Icon = getDocumentMimeIcon(document.mime_type);
 
   return (
     <SectionCard

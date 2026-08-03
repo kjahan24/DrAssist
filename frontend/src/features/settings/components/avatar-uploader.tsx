@@ -5,21 +5,13 @@ import { useRef, useState, type ChangeEvent } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { getInitials } from "@/lib/utils";
 
 interface AvatarUploaderProps {
   name: string;
   avatarUrl: string | null;
   onChange: (avatarUrl: string) => void;
   disabled?: boolean;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }
 
 // No real file storage exists in this mock (same "(UI)" reasoning as

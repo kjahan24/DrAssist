@@ -14,15 +14,7 @@ import {
   getRelationshipLabel,
   type FamilyMember,
 } from "@/lib/mock/family-members";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 export const invitationColumns: ColumnDef<FamilyMember>[] = [
   {

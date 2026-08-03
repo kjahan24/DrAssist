@@ -1,5 +1,4 @@
-import { File, FileImage, FileSpreadsheet, FileText } from "lucide-react";
-
+import { getDocumentMimeIcon } from "@/features/documents/lib/document-visuals";
 import { cn } from "@/lib/utils";
 
 interface DocumentPreviewProps {
@@ -8,20 +7,13 @@ interface DocumentPreviewProps {
   className?: string;
 }
 
-function resolveIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return FileImage;
-  if (mimeType === "application/pdf" || mimeType.startsWith("text/")) return FileText;
-  if (mimeType.includes("spreadsheet") || mimeType.includes("csv")) return FileSpreadsheet;
-  return File;
-}
-
 // The small, compact icon-based preview reused inside `DocumentCard`
 // and the list table's "Document Name" cell — a lightweight stand-in
 // for a real thumbnail/rendered preview, since no file bytes are ever
 // actually stored in this mock. `DocumentViewer` is this preview's
 // larger, dedicated counterpart on the detail page's Preview Panel.
 export function DocumentPreview({ mimeType, extension, className }: DocumentPreviewProps) {
-  const Icon = resolveIcon(mimeType);
+  const Icon = getDocumentMimeIcon(mimeType);
 
   return (
     <div

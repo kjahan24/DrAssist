@@ -9,15 +9,7 @@ import { Button } from "@/components/ui/button";
 import { OrganizationStatusBadge } from "@/features/organization/components/organization-status-badge";
 import { formatRelativeTime } from "@/lib/format";
 import { getMemberStatusLabel, type Member } from "@/lib/mock/members";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 const STATUS_TO_GENERIC: Record<Member["status"], "active" | "inactive"> = {
   active: "active",

@@ -11,15 +11,7 @@ import {
   getRelationshipLabel,
   type FamilyMember,
 } from "@/lib/mock/family-members";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 // The mobile-breakpoint counterpart to `FamilyMemberTable` — shown below
 // `md`, where the family list content hides the data table.

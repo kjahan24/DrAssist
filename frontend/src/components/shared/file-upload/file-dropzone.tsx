@@ -17,9 +17,9 @@ interface FileDropzoneProps {
 // Pure drag-and-drop + click-to-browse surface — deliberately has no
 // knowledge of *what* happens to the files it selects (no upload call, no
 // business rule about which document types are valid). A feature module
-// wires `onFilesSelected` to its own upload use case; see
-// `components/shared/file-upload/file-uploader.tsx` for the composed
-// version that adds a progress list on top of this.
+// wires `onFilesSelected` to its own upload use case and owns its own
+// progress-list UI on top (see `features/documents/components
+// /document-uploader.tsx`, which pairs this with `FileListItem` directly).
 export function FileDropzone({
   onFilesSelected,
   accept,
