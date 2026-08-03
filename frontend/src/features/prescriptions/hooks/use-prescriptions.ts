@@ -9,6 +9,7 @@ import {
   type PrescriptionStatus,
   createPrescription,
   getPrescription,
+  getPrescriptionByVisitId,
   listPrescriptions,
   updatePrescription,
 } from "@/lib/mock/prescriptions";
@@ -30,6 +31,17 @@ export function usePrescription(prescriptionId: string) {
     queryKey: prescriptionKeys.detail(prescriptionId),
     queryFn: () => getPrescription(prescriptionId),
     enabled: Boolean(prescriptionId),
+  });
+}
+
+// Used by the Medical Documents module to resolve a document's
+// "Related Prescription" via the visit it's already linked to — see
+// `getPrescriptionByVisitId()`'s own docstring.
+export function usePrescriptionByVisit(visitId: string) {
+  return useQuery({
+    queryKey: [...prescriptionKeys.all, "by-visit", visitId],
+    queryFn: () => getPrescriptionByVisitId(visitId),
+    enabled: Boolean(visitId),
   });
 }
 

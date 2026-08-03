@@ -766,6 +766,18 @@ export function getLabReport(labReportId: string): Promise<LabReportDetail | nul
   return mockFetch(found, 300);
 }
 
+// Added for the Medical Documents module (`lib/mock/documents.ts`): a
+// document's "Related Lab Report" section has no real backend FK to
+// derive from (`MedicalDocument` only has `visit_id`/`appointment_id`,
+// no `lab_order_id`) — this is the same shared-`visit_id` indirection
+// already used elsewhere (e.g. Diagnosis via Visit). Mirrors
+// `getClinicalNoteByVisitId()` exactly, just keyed by `visit_id` against
+// this module's own array instead.
+export function getLabReportByVisitId(visitId: string): Promise<LabReportDetail | null> {
+  const found = labReports.find((report) => report.visit_id === visitId) ?? null;
+  return mockFetch(found, 200);
+}
+
 // --- Repository: writes -------------------------------------------------
 // `patient_id`/`doctor_id`/`visit_id` are deliberately absent from this
 // input shape — mirroring the real `LabOrder`, they're derived from the

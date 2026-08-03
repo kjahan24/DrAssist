@@ -583,6 +583,16 @@ export function getPrescription(prescriptionId: string): Promise<PrescriptionDet
   return mockFetch(found, 300);
 }
 
+// Added for the Medical Documents module (`lib/mock/documents.ts`): a
+// document's "Related Prescription" section has no real backend FK to
+// derive from (`MedicalDocument` only has `visit_id`/`appointment_id`,
+// no `prescription_id`) — same shared-`visit_id` indirection already
+// used elsewhere in this app. Mirrors `getLabReportByVisitId()` exactly.
+export function getPrescriptionByVisitId(visitId: string): Promise<PrescriptionDetail | null> {
+  const found = prescriptions.find((prescription) => prescription.visit_id === visitId) ?? null;
+  return mockFetch(found, 200);
+}
+
 // --- Repository: writes -------------------------------------------------
 // `patient_id`/`doctor_id`/`visit_id` are deliberately absent from this
 // input shape — mirroring the real `Prescription`, they're derived from

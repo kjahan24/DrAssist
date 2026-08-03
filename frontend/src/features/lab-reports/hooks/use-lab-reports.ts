@@ -8,6 +8,7 @@ import {
   type LabReportListParams,
   createLabReport,
   getLabReport,
+  getLabReportByVisitId,
   listLabReports,
   updateLabReport,
 } from "@/lib/mock/lab-reports";
@@ -29,6 +30,17 @@ export function useLabReport(labReportId: string) {
     queryKey: labReportKeys.detail(labReportId),
     queryFn: () => getLabReport(labReportId),
     enabled: Boolean(labReportId),
+  });
+}
+
+// Used by the Medical Documents module to resolve a document's
+// "Related Lab Report" via the visit it's already linked to — see
+// `getLabReportByVisitId()`'s own docstring.
+export function useLabReportByVisit(visitId: string) {
+  return useQuery({
+    queryKey: [...labReportKeys.all, "by-visit", visitId],
+    queryFn: () => getLabReportByVisitId(visitId),
+    enabled: Boolean(visitId),
   });
 }
 
