@@ -38,6 +38,7 @@ from app.modules.patient_history.api.router import router as patient_history_rou
 from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
 from app.modules.schedule.api.router import router as schedule_router
+from app.modules.soap_note_ai.presentation.router import router as soap_note_ai_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
 from app.modules.timeline.api.router import router as timeline_router
 from app.modules.visit.api.router import router as visit_router
@@ -91,3 +92,4 @@ api_router.include_router(ai_copilot_router, prefix="/ai-copilot", tags=["ai-cop
 api_router.include_router(
     clinical_note_ai_router, prefix="/clinical-note-ai", tags=["clinical-note-ai"]
 )
+api_router.include_router(soap_note_ai_router, prefix="/soap-note-ai", tags=["soap-note-ai"])
