@@ -17,6 +17,7 @@ from app.modules.attachments.api.router import router as attachments_router
 from app.modules.audit_log.api.router import router as audit_log_router
 from app.modules.authentication.api.router import router as authentication_router
 from app.modules.chief_complaints.api.router import router as chief_complaints_router
+from app.modules.clinical_note_ai.presentation.router import router as clinical_note_ai_router
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
 from app.modules.clinical_reasoning.api.router import router as clinical_reasoning_router
 from app.modules.diagnosis.api.router import router as diagnosis_router
@@ -87,3 +88,6 @@ api_router.include_router(timeline_router, prefix="/timeline", tags=["timeline"]
 api_router.include_router(family_access_router, prefix="/family-access", tags=["family-access"])
 api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
 api_router.include_router(ai_copilot_router, prefix="/ai-copilot", tags=["ai-copilot"])
+api_router.include_router(
+    clinical_note_ai_router, prefix="/clinical-note-ai", tags=["clinical-note-ai"]
+)
