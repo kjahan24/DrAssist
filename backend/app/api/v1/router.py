@@ -36,6 +36,7 @@ from app.modules.notification.api.router import router as notification_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
 from app.modules.patient_history.api.router import router as patient_history_router
+from app.modules.prescription_ai.presentation.router import router as prescription_ai_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
 from app.modules.schedule.api.router import router as schedule_router
@@ -95,3 +96,6 @@ api_router.include_router(
 )
 api_router.include_router(soap_note_ai_router, prefix="/soap-note-ai", tags=["soap-note-ai"])
 api_router.include_router(icd10_ai_router, prefix="/icd10-ai", tags=["icd10-ai"])
+api_router.include_router(
+    prescription_ai_router, prefix="/prescription-ai", tags=["prescription-ai"]
+)
