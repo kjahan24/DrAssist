@@ -28,6 +28,7 @@ from app.modules.doctor.api.router import router as doctor_router
 from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.documents.api.router import router as documents_router
 from app.modules.family_access.api.router import router as family_access_router
+from app.modules.icd10_ai.presentation.router import router as icd10_ai_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
@@ -93,3 +94,4 @@ api_router.include_router(
     clinical_note_ai_router, prefix="/clinical-note-ai", tags=["clinical-note-ai"]
 )
 api_router.include_router(soap_note_ai_router, prefix="/soap-note-ai", tags=["soap-note-ai"])
+api_router.include_router(icd10_ai_router, prefix="/icd10-ai", tags=["icd10-ai"])
