@@ -33,6 +33,9 @@ from app.modules.documents.api.router import router as documents_router
 from app.modules.family_access.api.router import router as family_access_router
 from app.modules.icd10_ai.presentation.router import router as icd10_ai_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
+from app.modules.lab_interpretation_ai.presentation.router import (
+    router as lab_interpretation_ai_router,
+)
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
 from app.modules.medical_reasoning_ai.presentation.router import (
@@ -112,4 +115,7 @@ api_router.include_router(
 )
 api_router.include_router(
     medical_reasoning_ai_router, prefix="/medical-reasoning-ai", tags=["medical-reasoning-ai"]
+)
+api_router.include_router(
+    lab_interpretation_ai_router, prefix="/lab-interpretation-ai", tags=["lab-interpretation-ai"]
 )
