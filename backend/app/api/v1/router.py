@@ -24,6 +24,9 @@ from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.differential_diagnosis.api.router import (
     router as differential_diagnosis_router,
 )
+from app.modules.differential_diagnosis_ai.presentation.router import (
+    router as differential_diagnosis_ai_router,
+)
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.documents.api.router import router as documents_router
@@ -98,4 +101,9 @@ api_router.include_router(soap_note_ai_router, prefix="/soap-note-ai", tags=["so
 api_router.include_router(icd10_ai_router, prefix="/icd10-ai", tags=["icd10-ai"])
 api_router.include_router(
     prescription_ai_router, prefix="/prescription-ai", tags=["prescription-ai"]
+)
+api_router.include_router(
+    differential_diagnosis_ai_router,
+    prefix="/differential-diagnosis-ai",
+    tags=["differential-diagnosis-ai"],
 )
