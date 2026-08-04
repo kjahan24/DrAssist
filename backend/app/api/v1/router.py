@@ -35,6 +35,9 @@ from app.modules.icd10_ai.presentation.router import router as icd10_ai_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
 from app.modules.lab_orders.api.router import router as lab_orders_router
 from app.modules.lab_results.api.router import router as lab_results_router
+from app.modules.medical_reasoning_ai.presentation.router import (
+    router as medical_reasoning_ai_router,
+)
 from app.modules.notification.api.router import router as notification_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.patient.api.router import router as patient_router
@@ -106,4 +109,7 @@ api_router.include_router(
     differential_diagnosis_ai_router,
     prefix="/differential-diagnosis-ai",
     tags=["differential-diagnosis-ai"],
+)
+api_router.include_router(
+    medical_reasoning_ai_router, prefix="/medical-reasoning-ai", tags=["medical-reasoning-ai"]
 )
