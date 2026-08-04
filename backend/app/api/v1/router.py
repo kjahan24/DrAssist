@@ -11,6 +11,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints.health import router as health_router
 from app.modules.ai.api.router import router as ai_router
+from app.modules.ai_copilot.api.router import router as ai_copilot_router
 from app.modules.appointment.api.router import router as appointment_router
 from app.modules.attachments.api.router import router as attachments_router
 from app.modules.audit_log.api.router import router as audit_log_router
@@ -85,3 +86,4 @@ api_router.include_router(documents_router, prefix="/documents", tags=["document
 api_router.include_router(timeline_router, prefix="/timeline", tags=["timeline"])
 api_router.include_router(family_access_router, prefix="/family-access", tags=["family-access"])
 api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
+api_router.include_router(ai_copilot_router, prefix="/ai-copilot", tags=["ai-copilot"])
