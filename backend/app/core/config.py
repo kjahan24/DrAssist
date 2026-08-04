@@ -121,6 +121,51 @@ class PaddleOCRSettings(_EnvBaseSettings):
     use_gpu: bool = Field(default=False, alias="PADDLEOCR_USE_GPU")
 
 
+class AISettings(_EnvBaseSettings):
+    """Configuration for `app.modules.ai`'s Foundation layer
+    (`docs/backend-architecture/09_ai_gateway_and_storage.md`) — the
+    provider-agnostic `AIProviderPort`/`EmbeddingProviderPort` abstraction
+    over OpenAI/Gemini/Claude/Ollama/Mock. Gemini's own API key/model
+    stay on the pre-existing `GeminiSettings`/`Settings.gemini`
+    (`app.modules.ai.infrastructure.llm.gemini_provider` reads
+    `settings.gemini.api_key` directly) rather than being duplicated here,
+    per this file's own "no module defines its own Settings class... adds
+    a field to the relevant existing settings group" rule
+    (`06_configuration_logging_exceptions.md`) — this class exists only
+    for genuinely new configuration the AI Foundation introduces.
+    """
+
+    default_provider: Literal["openai", "gemini", "claude", "ollama", "mock"] = Field(
+        default="mock", alias="AI_DEFAULT_PROVIDER"
+    )
+    default_embedding_provider: Literal["openai", "gemini", "mock"] = Field(
+        default="mock", alias="AI_DEFAULT_EMBEDDING_PROVIDER"
+    )
+
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL"
+    )
+
+    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    anthropic_model: str = Field(default="claude-3-5-sonnet-latest", alias="ANTHROPIC_MODEL")
+
+    gemini_embedding_model: str = Field(
+        default="text-embedding-004", alias="GEMINI_EMBEDDING_MODEL"
+    )
+
+    ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
+    ollama_model: str = Field(default="llama3.1", alias="OLLAMA_MODEL")
+
+    request_timeout_seconds: float = Field(default=30.0, alias="AI_REQUEST_TIMEOUT_SECONDS")
+    max_retry_attempts: int = Field(default=3, alias="AI_MAX_RETRY_ATTEMPTS")
+    retry_initial_backoff_seconds: float = Field(
+        default=0.5, alias="AI_RETRY_INITIAL_BACKOFF_SECONDS"
+    )
+    retry_max_backoff_seconds: float = Field(default=8.0, alias="AI_RETRY_MAX_BACKOFF_SECONDS")
+
+
 class JWTSettings(_EnvBaseSettings):
     algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -152,6 +197,7 @@ class Settings(_EnvBaseSettings):
     minio: MinioSettings = Field(default_factory=MinioSettings)
     local_storage: LocalStorageSettings = Field(default_factory=LocalStorageSettings)
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
+    ai: AISettings = Field(default_factory=AISettings)
     whisper: WhisperSettings = Field(default_factory=WhisperSettings)
     paddleocr: PaddleOCRSettings = Field(default_factory=PaddleOCRSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)

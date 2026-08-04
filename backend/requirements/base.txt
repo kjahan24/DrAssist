@@ -36,6 +36,13 @@ google-generativeai==0.8.3
 faster-whisper==1.1.0
 paddleocr==2.9.1
 paddlepaddle==2.6.2
+# app.modules.ai's Foundation-layer provider adapters (infrastructure/llm/,
+# infrastructure/embeddings/) import these lazily, at call time only — the
+# rest of the module (Mock/Ollama providers, prompts, tokenizers, unit
+# tests) never requires them to be installed. See
+# infrastructure/llm/openai_provider.py's module docstring.
+openai==1.59.6
+anthropic==0.42.0
 
 # --- Auth / security primitives ---
 python-jose[cryptography]==3.3.0
