@@ -43,6 +43,9 @@ from app.modules.medical_reasoning_ai.presentation.router import (
 )
 from app.modules.notification.api.router import router as notification_router
 from app.modules.organization.api.router import router as organization_router
+from app.modules.pathology_interpretation_ai.presentation.router import (
+    router as pathology_interpretation_ai_router,
+)
 from app.modules.patient.api.router import router as patient_router
 from app.modules.patient_history.api.router import router as patient_history_router
 from app.modules.prescription_ai.presentation.router import router as prescription_ai_router
@@ -126,4 +129,9 @@ api_router.include_router(
     radiology_interpretation_ai_router,
     prefix="/radiology-interpretation-ai",
     tags=["radiology-interpretation-ai"],
+)
+api_router.include_router(
+    pathology_interpretation_ai_router,
+    prefix="/pathology-interpretation-ai",
+    tags=["pathology-interpretation-ai"],
 )
