@@ -30,6 +30,9 @@ from app.modules.differential_diagnosis_ai.presentation.router import (
 from app.modules.doctor.api.router import router as doctor_router
 from app.modules.doctor_review.api.router import router as doctor_review_router
 from app.modules.documents.api.router import router as documents_router
+from app.modules.drug_interaction_ai.presentation.router import (
+    router as drug_interaction_ai_router,
+)
 from app.modules.family_access.api.router import router as family_access_router
 from app.modules.icd10_ai.presentation.router import router as icd10_ai_router
 from app.modules.icd10_coding.api.router import router as icd10_coding_router
@@ -134,4 +137,7 @@ api_router.include_router(
     pathology_interpretation_ai_router,
     prefix="/pathology-interpretation-ai",
     tags=["pathology-interpretation-ai"],
+)
+api_router.include_router(
+    drug_interaction_ai_router, prefix="/drug-interaction-ai", tags=["drug-interaction-ai"]
 )
