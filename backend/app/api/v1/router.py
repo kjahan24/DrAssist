@@ -57,6 +57,9 @@ from app.modules.procedures.api.router import router as procedures_router
 from app.modules.radiology_interpretation_ai.presentation.router import (
     router as radiology_interpretation_ai_router,
 )
+from app.modules.risk_stratification_ai.presentation.router import (
+    router as risk_stratification_ai_router,
+)
 from app.modules.schedule.api.router import router as schedule_router
 from app.modules.soap_note_ai.presentation.router import router as soap_note_ai_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
@@ -140,4 +143,9 @@ api_router.include_router(
 )
 api_router.include_router(
     drug_interaction_ai_router, prefix="/drug-interaction-ai", tags=["drug-interaction-ai"]
+)
+api_router.include_router(
+    risk_stratification_ai_router,
+    prefix="/risk-stratification-ai",
+    tags=["risk-stratification-ai"],
 )
