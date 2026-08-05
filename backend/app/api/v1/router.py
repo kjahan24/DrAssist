@@ -21,6 +21,7 @@ from app.modules.chief_complaints.api.router import router as chief_complaints_r
 from app.modules.clinical_note_ai.presentation.router import router as clinical_note_ai_router
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
 from app.modules.clinical_reasoning.api.router import router as clinical_reasoning_router
+from app.modules.community.presentation.router import router as community_router
 from app.modules.diagnosis.api.router import router as diagnosis_router
 from app.modules.differential_diagnosis.api.router import (
     router as differential_diagnosis_router,
@@ -163,3 +164,4 @@ api_router.include_router(
     prefix="/ai-orchestrator",
     tags=["ai-orchestrator"],
 )
+api_router.include_router(community_router, prefix="/community", tags=["community"])
