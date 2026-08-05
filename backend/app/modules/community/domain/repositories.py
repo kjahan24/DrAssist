@@ -24,7 +24,13 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.modules.community.domain.entities import Community, CommunityMember
+from app.modules.community.domain.entities import (
+    Community,
+    CommunityCategory,
+    CommunityMember,
+    CommunityRule,
+    CommunityTag,
+)
 from app.modules.community.domain.enums import CommunityRole, CommunityVisibility
 
 
@@ -47,6 +53,10 @@ class CommunityRepository(ABC):
         organization_id: UUID,
         query: str | None = None,
         visibilities: Sequence[CommunityVisibility] | None = None,
+        category_id: UUID | None = None,
+        tag_ids: Sequence[UUID] | None = None,
+        featured_only: bool = False,
+        verified_only: bool = False,
         created_from: datetime | None = None,
         created_to: datetime | None = None,
         updated_from: datetime | None = None,
@@ -58,10 +68,18 @@ class CommunityRepository(ABC):
         limit: int = 20,
     ) -> tuple[Sequence[Community], int]:
         """Search & Filtering: organization-scoped search over
-        communities, backing `ListCommunitiesService`. `query` combines
-        full-text search over `name`/`description` with a partial match
-        on `name` — the same `apply_combined_text_search` shape every
-        other module's own `search()` already uses. Returns
+        communities, backing `ListCommunitiesService`/
+        `BrowseCommunitiesService`. `query` combines full-text search
+        over `name`/`description` with a partial match on `name` — the
+        same `apply_combined_text_search` shape every other module's own
+        `search()` already uses. `category_id`/`tag_ids`/`featured_only`/
+        `verified_only` are this task's own Browse-by-facet filters,
+        added additively (all default to "no filter"), so every call
+        site built in Phase 5.1 keeps working unchanged. `sort_by` also
+        now accepts `"member_count"` (see `BrowseCommunitiesService`'s
+        own "popular" sort docstring) — the SQLAlchemy implementation
+        handles that case with a `LEFT JOIN`/`GROUP BY` rather than the
+        plain column lookup every other `sort_by` value uses. Returns
         `(page_of_communities, total_matching_count)`."""
         ...
 
@@ -106,4 +124,110 @@ class CommunityMemberRepository(ABC):
         ...
 
     @abstractmethod
+    async def count_active(self, community_id: UUID) -> int:
+        """Total `ACTIVE` member count — backs `CommunityStatisticsService`
+        and this task's own "Member count" feature."""
+        ...
+
+    @abstractmethod
+    async def list_by_roles(
+        self,
+        community_id: UUID,
+        roles: Sequence[CommunityRole],
+        *,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> list[CommunityMember]:
+        """`ACTIVE` members holding any of `roles` — backs this task's
+        own "Community moderators" feature
+        (`roles=(MODERATOR, ADMIN, OWNER)`); moderators are not a
+        separate entity, just members whose own `CommunityRole` already
+        carries that meaning (see `CommunityRole`'s own docstring)."""
+        ...
+
+    @abstractmethod
     async def add(self, member: CommunityMember) -> None: ...
+
+
+class CommunityCategoryRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, category_id: UUID) -> CommunityCategory | None: ...
+
+    @abstractmethod
+    async def get_by_slug(self, slug: str) -> CommunityCategory | None: ...
+
+    @abstractmethod
+    async def get_by_name(self, name: str) -> CommunityCategory | None: ...
+
+    @abstractmethod
+    async def list_active(self, *, offset: int = 0, limit: int = 100) -> list[CommunityCategory]:
+        """Categories are a small, platform-wide (not organization-scoped)
+        vocabulary — see `CommunityCategory`'s own docstring — so this
+        lists across every organization, not one tenant's own."""
+        ...
+
+    @abstractmethod
+    async def add(self, category: CommunityCategory) -> None: ...
+
+
+class CommunityTagRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, tag_id: UUID) -> CommunityTag | None: ...
+
+    @abstractmethod
+    async def get_by_name(self, name: str) -> CommunityTag | None: ...
+
+    @abstractmethod
+    async def search(
+        self, term: str, *, offset: int = 0, limit: int = 20
+    ) -> tuple[Sequence[CommunityTag], int]:
+        """Case-insensitive partial match on `CommunityTag.name` — this
+        task's own "Tags... Searchable" requirement (typeahead/autocomplete
+        when assigning a tag to a community)."""
+        ...
+
+    @abstractmethod
+    async def add(self, tag: CommunityTag) -> None: ...
+
+    @abstractmethod
+    async def assign(self, community_id: UUID, tag_id: UUID) -> None:
+        """Insert one `community_tags` join row — a no-op (not an error)
+        if already assigned, mirroring `CommunityRepository.add`'s own
+        upsert idempotence; the *caller* (`ManageCommunityTagsService`)
+        is what raises `CommunityTagAlreadyAssignedError` when it wants
+        that to be an error, by checking `is_assigned` first."""
+        ...
+
+    @abstractmethod
+    async def unassign(self, community_id: UUID, tag_id: UUID) -> None: ...
+
+    @abstractmethod
+    async def is_assigned(self, community_id: UUID, tag_id: UUID) -> bool: ...
+
+    @abstractmethod
+    async def list_for_community(self, community_id: UUID) -> list[CommunityTag]: ...
+
+
+class CommunityRuleRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, rule_id: UUID) -> CommunityRule | None: ...
+
+    @abstractmethod
+    async def list_by_community(
+        self, community_id: UUID, *, include_disabled: bool = True
+    ) -> list[CommunityRule]:
+        """Ordered by `CommunityRule.position` ascending."""
+        ...
+
+    @abstractmethod
+    async def count_by_community(self, community_id: UUID) -> int: ...
+
+    @abstractmethod
+    async def add(self, rule: CommunityRule) -> None: ...
+
+    @abstractmethod
+    async def remove(self, rule_id: UUID) -> None:
+        """Hard delete — rules carry no historical/audit value once
+        removed, unlike `Community` itself (soft-deleted) or
+        `CommunityMember` (status-cycled); a no-op if already missing."""
+        ...

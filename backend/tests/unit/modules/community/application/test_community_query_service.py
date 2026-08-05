@@ -4,19 +4,22 @@
 from uuid import uuid4
 
 from app.modules.community.application.services.community_query_service import (
+    CommunityCategoryQueryService,
     CommunityMembershipQueryService,
     GetCommunityService,
     ListCommunitiesService,
 )
-from app.modules.community.domain.entities import Community, CommunityMember
+from app.modules.community.domain.entities import Community, CommunityCategory, CommunityMember
 from app.modules.community.domain.enums import CommunityRole, CommunityVisibility
 from app.modules.community.domain.value_objects import (
+    CommunityCategoryName,
     CommunityDescription,
     CommunityId,
     CommunityName,
     CommunitySlug,
 )
 from tests.unit.modules.community.application.fakes import (
+    FakeCommunityCategoryRepository,
     FakeCommunityMemberRepository,
     FakeCommunityRepository,
 )
@@ -277,3 +280,92 @@ class TestCommunityMembershipQueryService:
             community_member_repository=FakeCommunityMemberRepository()
         )
         assert await service.is_active_member(uuid4(), uuid4()) is False
+
+    async def test_list_moderators_returns_moderator_admin_and_owner_roles(self) -> None:
+        members = FakeCommunityMemberRepository()
+        service = CommunityMembershipQueryService(community_member_repository=members)
+        community_id = CommunityId(uuid4())
+        moderator = CommunityMember.create(
+            community_id=community_id, user_id=uuid4(), role=CommunityRole.MODERATOR
+        )
+        admin = CommunityMember.create(
+            community_id=community_id, user_id=uuid4(), role=CommunityRole.ADMIN
+        )
+        owner = CommunityMember.create(
+            community_id=community_id, user_id=uuid4(), role=CommunityRole.OWNER
+        )
+        plain_member = CommunityMember.create(community_id=community_id, user_id=uuid4())
+        for member in (moderator, admin, owner, plain_member):
+            await members.add(member)
+
+        results = await service.list_moderators(community_id.value)
+
+        result_ids = {r.member_id for r in results}
+        assert result_ids == {moderator.id, admin.id, owner.id}
+
+    async def test_list_moderators_excludes_other_communities(self) -> None:
+        members = FakeCommunityMemberRepository()
+        service = CommunityMembershipQueryService(community_member_repository=members)
+        moderator = CommunityMember.create(
+            community_id=CommunityId(uuid4()), user_id=uuid4(), role=CommunityRole.MODERATOR
+        )
+        await members.add(moderator)
+
+        results = await service.list_moderators(uuid4())
+
+        assert results == []
+
+    async def test_list_moderators_respects_pagination(self) -> None:
+        members = FakeCommunityMemberRepository()
+        service = CommunityMembershipQueryService(community_member_repository=members)
+        community_id = CommunityId(uuid4())
+        for _ in range(3):
+            await members.add(
+                CommunityMember.create(
+                    community_id=community_id, user_id=uuid4(), role=CommunityRole.MODERATOR
+                )
+            )
+
+        results = await service.list_moderators(community_id.value, offset=1, limit=1)
+
+        assert len(results) == 1
+
+
+class TestCommunityCategoryQueryService:
+    async def test_list_active_returns_only_active_categories(self) -> None:
+        categories = FakeCommunityCategoryRepository()
+        service = CommunityCategoryQueryService(community_category_repository=categories)
+        active = CommunityCategory.create(
+            name=CommunityCategoryName("Oncology"), slug=CommunitySlug("oncology")
+        )
+        inactive = CommunityCategory.create(
+            name=CommunityCategoryName("Deprecated"), slug=CommunitySlug("deprecated")
+        )
+        inactive.deactivate()
+        await categories.add(active)
+        await categories.add(inactive)
+
+        results = await service.list_active()
+
+        result_ids = {c.category_id for c in results}
+        assert result_ids == {active.id}
+
+    async def test_no_categories_returns_empty(self) -> None:
+        service = CommunityCategoryQueryService(
+            community_category_repository=FakeCommunityCategoryRepository()
+        )
+        assert await service.list_active() == []
+
+    async def test_respects_pagination(self) -> None:
+        categories = FakeCommunityCategoryRepository()
+        service = CommunityCategoryQueryService(community_category_repository=categories)
+        for i in range(3):
+            await categories.add(
+                CommunityCategory.create(
+                    name=CommunityCategoryName(f"Category {i}"), slug=CommunitySlug(f"category-{i}")
+                )
+            )
+
+        results = await service.list_active(offset=1, limit=1)
+
+        assert len(results) == 1

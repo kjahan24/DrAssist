@@ -105,3 +105,95 @@ class CommunityOwnerRequiredError(DomainError):
     def __init__(self, community_id: UUID) -> None:
         super().__init__(f"community {community_id} must retain at least one owner")
         self.community_id = community_id
+
+
+# --- Category --------------------------------------------------------------
+
+
+class CommunityCategoryNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("community category name must not be blank")
+
+
+class CommunityCategoryNameTooLongError(DomainError):
+    def __init__(self, max_length: int) -> None:
+        super().__init__(f"community category name must not exceed {max_length} characters")
+        self.max_length = max_length
+
+
+class DuplicateCommunityCategoryNameError(DomainError):
+    def __init__(self, name: str) -> None:
+        super().__init__(f"a community category named {name!r} already exists")
+        self.name = name
+
+
+class CommunityCategoryNotFoundError(DomainError):
+    def __init__(self, category_id: UUID) -> None:
+        super().__init__(f"no community category found with id {category_id}")
+        self.category_id = category_id
+
+
+# --- Tag ---------------------------------------------------------------------
+
+
+class CommunityTagNameRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("community tag name must not be blank")
+
+
+class CommunityTagNameTooLongError(DomainError):
+    def __init__(self, max_length: int) -> None:
+        super().__init__(f"community tag name must not exceed {max_length} characters")
+        self.max_length = max_length
+
+
+class CommunityTagNotFoundError(DomainError):
+    def __init__(self, tag_id: UUID) -> None:
+        super().__init__(f"no community tag found with id {tag_id}")
+        self.tag_id = tag_id
+
+
+class CommunityTagAlreadyAssignedError(DomainError):
+    def __init__(self, community_id: UUID, tag_id: UUID) -> None:
+        super().__init__(f"tag {tag_id} is already assigned to community {community_id}")
+        self.community_id = community_id
+        self.tag_id = tag_id
+
+
+class CommunityTagNotAssignedError(DomainError):
+    def __init__(self, community_id: UUID, tag_id: UUID) -> None:
+        super().__init__(f"tag {tag_id} is not assigned to community {community_id}")
+        self.community_id = community_id
+        self.tag_id = tag_id
+
+
+# --- Rule --------------------------------------------------------------------
+
+
+class CommunityRuleTitleRequiredError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("community rule title must not be blank")
+
+
+class CommunityRuleTitleTooLongError(DomainError):
+    def __init__(self, max_length: int) -> None:
+        super().__init__(f"community rule title must not exceed {max_length} characters")
+        self.max_length = max_length
+
+
+class CommunityRuleNotFoundError(DomainError):
+    def __init__(self, rule_id: UUID) -> None:
+        super().__init__(f"no community rule found with id {rule_id}")
+        self.rule_id = rule_id
+
+
+# --- Media ---------------------------------------------------------------------
+
+
+class CommunityMediaEmptyError(DomainError):
+    """Raised when an avatar/banner upload has zero bytes — see
+    `UpdateCommunityAppearanceService`'s own docstring."""
+
+    def __init__(self, field: str) -> None:
+        super().__init__(f"community {field} upload must not be empty")
+        self.field = field

@@ -44,3 +44,64 @@ class CommunityMemberJoined(DomainEvent):
 class CommunityMemberLeft(DomainEvent):
     community_id: UUID
     user_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityAppearanceUpdated(DomainEvent):
+    community_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityFeaturedChanged(DomainEvent):
+    community_id: UUID
+    is_featured: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityVerifiedChanged(DomainEvent):
+    community_id: UUID
+    is_verified: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityCategoryAssigned(DomainEvent):
+    community_id: UUID
+    category_id: UUID | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityCategoryCreated(DomainEvent):
+    category_id: UUID
+    name: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityTagCreated(DomainEvent):
+    tag_id: UUID
+    name: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityRuleCreated(DomainEvent):
+    rule_id: UUID
+    community_id: UUID
+    title: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityRuleUpdated(DomainEvent):
+    rule_id: UUID
+    community_id: UUID
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityRuleEnabledChanged(DomainEvent):
+    rule_id: UUID
+    community_id: UUID
+    is_enabled: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommunityRulesReordered(DomainEvent):
+    community_id: UUID
+    rule_ids: tuple[UUID, ...]

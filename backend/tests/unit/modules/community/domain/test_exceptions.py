@@ -3,8 +3,12 @@
 from uuid import uuid4
 
 from app.modules.community.domain.exceptions import (
+    CommunityCategoryNameRequiredError,
+    CommunityCategoryNameTooLongError,
+    CommunityCategoryNotFoundError,
     CommunityDescriptionRequiredError,
     CommunityDescriptionTooLongError,
+    CommunityMediaEmptyError,
     CommunityMemberBlockedError,
     CommunityMembershipAlreadyExistsError,
     CommunityMembershipNotFoundError,
@@ -12,6 +16,15 @@ from app.modules.community.domain.exceptions import (
     CommunityNameTooLongError,
     CommunityNotFoundError,
     CommunityOwnerRequiredError,
+    CommunityRuleNotFoundError,
+    CommunityRuleTitleRequiredError,
+    CommunityRuleTitleTooLongError,
+    CommunityTagAlreadyAssignedError,
+    CommunityTagNameRequiredError,
+    CommunityTagNameTooLongError,
+    CommunityTagNotAssignedError,
+    CommunityTagNotFoundError,
+    DuplicateCommunityCategoryNameError,
     DuplicateCommunitySlugError,
     InsufficientCommunityRoleError,
     InvalidCommunitySlugError,
@@ -155,3 +168,132 @@ class TestCommunityOwnerRequiredError:
         error = CommunityOwnerRequiredError(community_id)
         assert str(community_id) in str(error)
         assert error.community_id == community_id
+
+
+class TestCommunityCategoryNameRequiredError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityCategoryNameRequiredError(), DomainError)
+
+    def test_message(self) -> None:
+        assert "blank" in str(CommunityCategoryNameRequiredError())
+
+
+class TestCommunityCategoryNameTooLongError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityCategoryNameTooLongError(100), DomainError)
+
+    def test_message_includes_max_length(self) -> None:
+        error = CommunityCategoryNameTooLongError(100)
+        assert "100" in str(error)
+        assert error.max_length == 100
+
+
+class TestDuplicateCommunityCategoryNameError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(DuplicateCommunityCategoryNameError("Oncology"), DomainError)
+
+    def test_message_includes_name(self) -> None:
+        error = DuplicateCommunityCategoryNameError("Oncology")
+        assert "Oncology" in str(error)
+        assert error.name == "Oncology"
+
+
+class TestCommunityCategoryNotFoundError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityCategoryNotFoundError(uuid4()), DomainError)
+
+    def test_message_includes_category_id(self) -> None:
+        category_id = uuid4()
+        error = CommunityCategoryNotFoundError(category_id)
+        assert str(category_id) in str(error)
+        assert error.category_id == category_id
+
+
+class TestCommunityTagNameRequiredError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityTagNameRequiredError(), DomainError)
+
+    def test_message(self) -> None:
+        assert "blank" in str(CommunityTagNameRequiredError())
+
+
+class TestCommunityTagNameTooLongError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityTagNameTooLongError(50), DomainError)
+
+    def test_message_includes_max_length(self) -> None:
+        error = CommunityTagNameTooLongError(50)
+        assert "50" in str(error)
+        assert error.max_length == 50
+
+
+class TestCommunityTagNotFoundError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityTagNotFoundError(uuid4()), DomainError)
+
+    def test_message_includes_tag_id(self) -> None:
+        tag_id = uuid4()
+        error = CommunityTagNotFoundError(tag_id)
+        assert str(tag_id) in str(error)
+        assert error.tag_id == tag_id
+
+
+class TestCommunityTagAlreadyAssignedError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityTagAlreadyAssignedError(uuid4(), uuid4()), DomainError)
+
+    def test_message_includes_both_ids(self) -> None:
+        community_id, tag_id = uuid4(), uuid4()
+        error = CommunityTagAlreadyAssignedError(community_id, tag_id)
+        assert str(community_id) in str(error)
+        assert str(tag_id) in str(error)
+
+
+class TestCommunityTagNotAssignedError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityTagNotAssignedError(uuid4(), uuid4()), DomainError)
+
+    def test_message_includes_both_ids(self) -> None:
+        community_id, tag_id = uuid4(), uuid4()
+        error = CommunityTagNotAssignedError(community_id, tag_id)
+        assert str(community_id) in str(error)
+        assert str(tag_id) in str(error)
+
+
+class TestCommunityRuleTitleRequiredError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityRuleTitleRequiredError(), DomainError)
+
+    def test_message(self) -> None:
+        assert "blank" in str(CommunityRuleTitleRequiredError())
+
+
+class TestCommunityRuleTitleTooLongError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityRuleTitleTooLongError(200), DomainError)
+
+    def test_message_includes_max_length(self) -> None:
+        error = CommunityRuleTitleTooLongError(200)
+        assert "200" in str(error)
+        assert error.max_length == 200
+
+
+class TestCommunityRuleNotFoundError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityRuleNotFoundError(uuid4()), DomainError)
+
+    def test_message_includes_rule_id(self) -> None:
+        rule_id = uuid4()
+        error = CommunityRuleNotFoundError(rule_id)
+        assert str(rule_id) in str(error)
+        assert error.rule_id == rule_id
+
+
+class TestCommunityMediaEmptyError:
+    def test_is_a_domain_error(self) -> None:
+        assert isinstance(CommunityMediaEmptyError("avatar"), DomainError)
+
+    def test_message_includes_field(self) -> None:
+        error = CommunityMediaEmptyError("banner")
+        assert "banner" in str(error)
+        assert error.field == "banner"

@@ -53,6 +53,8 @@ class UpdateCommunityService(UseCase[UpdateCommunityInput, UpdateCommunityOutput
             description=description,
             clear_description=input_dto.clear_description,
             visibility=input_dto.visibility,
+            category_id=input_dto.category_id,
+            clear_category=input_dto.clear_category,
             updated_by=input_dto.acting_user_id,
         )
 

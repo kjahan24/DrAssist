@@ -12,17 +12,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.integration.modules.community._helpers import (
     persist_organization,
     persist_organization_and_user,
+    persist_user,
 )
 
-from app.modules.community.domain.entities import Community
+from app.modules.community.domain.entities import (
+    Community,
+    CommunityCategory,
+    CommunityMember,
+    CommunityTag,
+)
 from app.modules.community.domain.enums import CommunityVisibility
 from app.modules.community.domain.value_objects import (
+    CommunityCategoryName,
     CommunityDescription,
+    CommunityId,
     CommunityName,
     CommunitySlug,
+    CommunityTagName,
 )
 from app.modules.community.infrastructure.models import CommunityModel
-from app.modules.community.infrastructure.repositories import SqlAlchemyCommunityRepository
+from app.modules.community.infrastructure.repositories import (
+    SqlAlchemyCommunityCategoryRepository,
+    SqlAlchemyCommunityMemberRepository,
+    SqlAlchemyCommunityRepository,
+    SqlAlchemyCommunityTagRepository,
+)
 
 
 def _unique_slug() -> str:
@@ -276,6 +290,112 @@ class TestSearch:
 
         assert total == 3
         assert len(results) == 1
+
+
+class TestSearchDiscoveryFilters:
+    async def test_category_id_filter(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        repo = SqlAlchemyCommunityRepository(db_session)
+        category_repo = SqlAlchemyCommunityCategoryRepository(db_session)
+        suffix = uuid4().hex[:12]
+        category = CommunityCategory.create(
+            name=CommunityCategoryName(f"Category {suffix}"),
+            slug=CommunitySlug(f"category-{suffix}"),
+        )
+        await category_repo.add(category)
+        await db_session.commit()
+
+        matching = _make_community(organization_id=organization.id)
+        matching.update_profile(category_id=category.id)
+        other = _make_community(organization_id=organization.id)
+        await repo.add(matching)
+        await repo.add(other)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, category_id=category.id)
+
+        assert total == 1
+        assert [c.id for c in results] == [matching.id]
+
+    async def test_tag_ids_filter(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        community_repo = SqlAlchemyCommunityRepository(db_session)
+        tag_repo = SqlAlchemyCommunityTagRepository(db_session)
+        matching = _make_community(organization_id=organization.id)
+        other = _make_community(organization_id=organization.id)
+        await community_repo.add(matching)
+        await community_repo.add(other)
+        await db_session.commit()
+
+        tag = CommunityTag.create(name=CommunityTagName(f"tag-{uuid4().hex[:8]}"))
+        await tag_repo.add(tag)
+        await db_session.commit()
+        await tag_repo.assign(matching.id, tag.id)
+        await db_session.commit()
+
+        results, total = await community_repo.search(
+            organization_id=organization.id, tag_ids=[tag.id]
+        )
+
+        assert total == 1
+        assert [c.id for c in results] == [matching.id]
+
+    async def test_featured_only_filter(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        repo = SqlAlchemyCommunityRepository(db_session)
+        featured = _make_community(organization_id=organization.id)
+        featured.set_featured(True)
+        unfeatured = _make_community(organization_id=organization.id)
+        await repo.add(featured)
+        await repo.add(unfeatured)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, featured_only=True)
+
+        assert total == 1
+        assert [c.id for c in results] == [featured.id]
+
+    async def test_verified_only_filter(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        repo = SqlAlchemyCommunityRepository(db_session)
+        verified = _make_community(organization_id=organization.id)
+        verified.set_verified(True)
+        unverified = _make_community(organization_id=organization.id)
+        await repo.add(verified)
+        await repo.add(unverified)
+        await db_session.commit()
+
+        results, total = await repo.search(organization_id=organization.id, verified_only=True)
+
+        assert total == 1
+        assert [c.id for c in results] == [verified.id]
+
+    async def test_sort_by_member_count(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        community_repo = SqlAlchemyCommunityRepository(db_session)
+        member_repo = SqlAlchemyCommunityMemberRepository(db_session)
+        low = _make_community(organization_id=organization.id)
+        high = _make_community(organization_id=organization.id)
+        await community_repo.add(low)
+        await community_repo.add(high)
+        await db_session.commit()
+
+        low_user = await persist_user(db_session, organization_id=organization.id)
+        await member_repo.add(
+            CommunityMember.create(community_id=CommunityId(low.id), user_id=low_user.id)
+        )
+        for _ in range(3):
+            user = await persist_user(db_session, organization_id=organization.id)
+            await member_repo.add(
+                CommunityMember.create(community_id=CommunityId(high.id), user_id=user.id)
+            )
+        await db_session.commit()
+
+        results, _ = await community_repo.search(
+            organization_id=organization.id, sort_by="member_count", sort_order="desc"
+        )
+
+        assert [c.id for c in results[:2]] == [high.id, low.id]
 
 
 class TestRemove:

@@ -13,10 +13,24 @@ from app.modules.community.domain.enums import (
     CommunityVisibility,
 )
 from app.modules.community.presentation.schemas import (
+    AssignCommunityTagRequest,
+    CommunityCategoryResponse,
     CommunityMemberResponse,
     CommunityResponse,
+    CommunityRuleResponse,
+    CommunitySearchResponse,
+    CommunityStatisticsResponse,
+    CommunityTagResponse,
+    CommunityTagSearchResponse,
+    CreateCommunityCategoryRequest,
     CreateCommunityRequest,
+    CreateCommunityRuleRequest,
+    ReorderCommunityRulesRequest,
+    SetCommunityFeaturedRequest,
+    SetCommunityRuleEnabledRequest,
+    SetCommunityVerifiedRequest,
     UpdateCommunityRequest,
+    UpdateCommunityRuleRequest,
 )
 
 
@@ -110,6 +124,16 @@ class TestUpdateCommunityRequest:
         request = UpdateCommunityRequest(clear_description=True)
         assert request.clear_description is True
 
+    def test_category_id_and_clear_category_default(self) -> None:
+        request = UpdateCommunityRequest()
+        assert request.category_id is None
+        assert request.clear_category is False
+
+    def test_accepts_a_category_id(self) -> None:
+        category_id = uuid4()
+        request = UpdateCommunityRequest(category_id=category_id)
+        assert request.category_id == category_id
+
 
 class TestCommunityResponse:
     def test_constructs_from_a_full_field_set(self) -> None:
@@ -126,6 +150,11 @@ class TestCommunityResponse:
         assert response.slug == "oncology"
         assert response.description is None
         assert response.created_by is None
+        assert response.category_id is None
+        assert response.avatar_storage_path is None
+        assert response.banner_storage_path is None
+        assert response.is_verified is False
+        assert response.is_featured is False
 
     def test_constructs_from_attributes(self) -> None:
         """`ORJSONModel.model_config` sets `from_attributes=True` — every
@@ -160,3 +189,175 @@ class TestCommunityMemberResponse:
         )
         assert response.role is CommunityRole.ADMIN
         assert response.status is CommunityMemberStatus.ACTIVE
+
+
+class TestCommunitySearchResponse:
+    def test_constructs_with_an_empty_result_set(self) -> None:
+        response = CommunitySearchResponse(items=[], total=0)
+        assert response.items == []
+        assert response.total == 0
+
+
+class TestSetCommunityFeaturedRequest:
+    def test_accepts_a_boolean(self) -> None:
+        assert SetCommunityFeaturedRequest(featured=True).featured is True
+
+    def test_featured_is_required(self) -> None:
+        with pytest.raises(ValidationError):
+            SetCommunityFeaturedRequest.model_validate({})
+
+
+class TestSetCommunityVerifiedRequest:
+    def test_accepts_a_boolean(self) -> None:
+        assert SetCommunityVerifiedRequest(verified=True).verified is True
+
+    def test_verified_is_required(self) -> None:
+        with pytest.raises(ValidationError):
+            SetCommunityVerifiedRequest.model_validate({})
+
+
+class TestCommunityCategoryResponse:
+    def test_constructs_from_a_full_field_set(self) -> None:
+        response = CommunityCategoryResponse(
+            id=uuid4(), name="Oncology", slug="oncology", is_active=True
+        )
+        assert response.name == "Oncology"
+        assert response.description is None
+
+
+class TestCreateCommunityCategoryRequest:
+    def test_valid_request_is_accepted(self) -> None:
+        request = CreateCommunityCategoryRequest(name="Oncology", slug="oncology")
+        assert request.name == "Oncology"
+        assert request.description is None
+
+    def test_blank_name_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityCategoryRequest(name="", slug="oncology")
+
+    def test_name_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityCategoryRequest(name="a" * 101, slug="oncology")
+
+    def test_slug_too_short_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityCategoryRequest(name="Oncology", slug="ab")
+
+    @pytest.mark.parametrize("slug", ["Oncology", "onco_logy", "onco logy", "-oncology"])
+    def test_slug_pattern_violations_are_rejected(self, slug: str) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityCategoryRequest(name="Oncology", slug=slug)
+
+    def test_description_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityCategoryRequest(name="Oncology", slug="oncology", description="a" * 1001)
+
+
+class TestCommunityTagResponse:
+    def test_constructs_from_a_full_field_set(self) -> None:
+        response = CommunityTagResponse(id=uuid4(), name="diabetes")
+        assert response.name == "diabetes"
+
+
+class TestAssignCommunityTagRequest:
+    def test_valid_request_is_accepted(self) -> None:
+        request = AssignCommunityTagRequest(tag_name="diabetes")
+        assert request.tag_name == "diabetes"
+
+    def test_blank_tag_name_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            AssignCommunityTagRequest(tag_name="")
+
+    def test_tag_name_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            AssignCommunityTagRequest(tag_name="a" * 51)
+
+
+class TestCommunityTagSearchResponse:
+    def test_constructs_with_an_empty_result_set(self) -> None:
+        response = CommunityTagSearchResponse(items=[], total=0)
+        assert response.items == []
+        assert response.total == 0
+
+
+class TestCommunityRuleResponse:
+    def test_constructs_from_a_full_field_set(self) -> None:
+        response = CommunityRuleResponse(
+            id=uuid4(), community_id=uuid4(), title="Be respectful", position=0, is_enabled=True
+        )
+        assert response.title == "Be respectful"
+        assert response.description is None
+
+
+class TestCreateCommunityRuleRequest:
+    def test_valid_request_is_accepted(self) -> None:
+        request = CreateCommunityRuleRequest(title="Be respectful")
+        assert request.title == "Be respectful"
+        assert request.description is None
+
+    def test_blank_title_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityRuleRequest(title="")
+
+    def test_title_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityRuleRequest(title="a" * 201)
+
+    def test_description_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            CreateCommunityRuleRequest(title="Be respectful", description="a" * 2001)
+
+
+class TestUpdateCommunityRuleRequest:
+    def test_all_fields_optional(self) -> None:
+        request = UpdateCommunityRuleRequest()
+        assert request.title is None
+        assert request.description is None
+
+    def test_blank_title_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            UpdateCommunityRuleRequest(title="")
+
+    def test_title_too_long_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            UpdateCommunityRuleRequest(title="a" * 201)
+
+
+class TestSetCommunityRuleEnabledRequest:
+    def test_accepts_a_boolean(self) -> None:
+        assert SetCommunityRuleEnabledRequest(enabled=False).enabled is False
+
+    def test_enabled_is_required(self) -> None:
+        with pytest.raises(ValidationError):
+            SetCommunityRuleEnabledRequest.model_validate({})
+
+
+class TestReorderCommunityRulesRequest:
+    def test_accepts_a_list_of_rule_ids(self) -> None:
+        rule_ids = [uuid4(), uuid4()]
+        request = ReorderCommunityRulesRequest(ordered_rule_ids=rule_ids)
+        assert request.ordered_rule_ids == rule_ids
+
+    def test_accepts_an_empty_list(self) -> None:
+        request = ReorderCommunityRulesRequest(ordered_rule_ids=[])
+        assert request.ordered_rule_ids == []
+
+    def test_ordered_rule_ids_is_required(self) -> None:
+        with pytest.raises(ValidationError):
+            ReorderCommunityRulesRequest.model_validate({})
+
+
+class TestCommunityStatisticsResponse:
+    def test_constructs_from_a_full_field_set(self) -> None:
+        response = CommunityStatisticsResponse(
+            community_id=uuid4(),
+            member_count=5,
+            moderator_count=2,
+            rule_count=3,
+            tag_count=4,
+            is_verified=True,
+            is_featured=False,
+            created_at=datetime.now(UTC),
+        )
+        assert response.member_count == 5
+        assert response.is_verified is True

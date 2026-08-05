@@ -6,17 +6,26 @@ from uuid import uuid4
 import pytest
 
 from app.modules.community.domain.exceptions import (
+    CommunityCategoryNameRequiredError,
+    CommunityCategoryNameTooLongError,
     CommunityDescriptionRequiredError,
     CommunityDescriptionTooLongError,
     CommunityNameRequiredError,
     CommunityNameTooLongError,
+    CommunityRuleTitleRequiredError,
+    CommunityRuleTitleTooLongError,
+    CommunityTagNameRequiredError,
+    CommunityTagNameTooLongError,
     InvalidCommunitySlugError,
 )
 from app.modules.community.domain.value_objects import (
+    CommunityCategoryName,
     CommunityDescription,
     CommunityId,
     CommunityName,
+    CommunityRuleTitle,
     CommunitySlug,
+    CommunityTagName,
 )
 
 
@@ -144,3 +153,75 @@ class TestCommunityDescription:
     def test_description_at_max_length_boundary_is_valid(self) -> None:
         description = "a" * 2000
         assert str(CommunityDescription(description)) == description
+
+
+class TestCommunityCategoryName:
+    def test_valid_name_is_accepted(self) -> None:
+        assert str(CommunityCategoryName("Oncology")) == "Oncology"
+
+    def test_strips_surrounding_whitespace(self) -> None:
+        assert str(CommunityCategoryName("  Oncology  ")) == "Oncology"
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_blank_name_raises(self, raw: str) -> None:
+        with pytest.raises(CommunityCategoryNameRequiredError):
+            CommunityCategoryName(raw)
+
+    def test_name_over_max_length_raises(self) -> None:
+        with pytest.raises(CommunityCategoryNameTooLongError):
+            CommunityCategoryName("a" * 101)
+
+    def test_name_at_max_length_boundary_is_valid(self) -> None:
+        name = "a" * 100
+        assert str(CommunityCategoryName(name)) == name
+
+    def test_preserves_case(self) -> None:
+        assert str(CommunityCategoryName("Mental Health")) == "Mental Health"
+
+
+class TestCommunityTagName:
+    def test_valid_name_is_accepted(self) -> None:
+        assert str(CommunityTagName("diabetes")) == "diabetes"
+
+    def test_normalizes_to_lowercase(self) -> None:
+        assert str(CommunityTagName("Diabetes")) == "diabetes"
+
+    def test_strips_surrounding_whitespace(self) -> None:
+        assert str(CommunityTagName("  diabetes  ")) == "diabetes"
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_blank_name_raises(self, raw: str) -> None:
+        with pytest.raises(CommunityTagNameRequiredError):
+            CommunityTagName(raw)
+
+    def test_name_over_max_length_raises(self) -> None:
+        with pytest.raises(CommunityTagNameTooLongError):
+            CommunityTagName("a" * 51)
+
+    def test_name_at_max_length_boundary_is_valid(self) -> None:
+        name = "a" * 50
+        assert str(CommunityTagName(name)) == name
+
+    def test_equal_after_case_normalization(self) -> None:
+        assert CommunityTagName("Diabetes") == CommunityTagName("diabetes")
+
+
+class TestCommunityRuleTitle:
+    def test_valid_title_is_accepted(self) -> None:
+        assert str(CommunityRuleTitle("Be respectful")) == "Be respectful"
+
+    def test_strips_surrounding_whitespace(self) -> None:
+        assert str(CommunityRuleTitle("  Be respectful  ")) == "Be respectful"
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_blank_title_raises(self, raw: str) -> None:
+        with pytest.raises(CommunityRuleTitleRequiredError):
+            CommunityRuleTitle(raw)
+
+    def test_title_over_max_length_raises(self) -> None:
+        with pytest.raises(CommunityRuleTitleTooLongError):
+            CommunityRuleTitle("a" * 201)
+
+    def test_title_at_max_length_boundary_is_valid(self) -> None:
+        title = "a" * 200
+        assert str(CommunityRuleTitle(title)) == title

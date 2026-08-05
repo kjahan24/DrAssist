@@ -8,7 +8,8 @@ no `UnitOfWork`, no domain events — reads never mutate).
 `CommunityMembershipQueryService` backs `public/facade.py`'s own
 `get_membership`/`is_active_member` — the membership-lookup half of the
 public query port future Posts/Questions/etc. modules will depend on;
-see `public/interfaces.py`'s own docstring.
+see `public/interfaces.py`'s own docstring. Its own `list_moderators`
+backs this task's own "Community moderators" feature.
 """
 
 from collections.abc import Sequence
@@ -17,38 +18,28 @@ from typing import Literal
 from uuid import UUID
 
 from app.modules.community.application.dto import (
+    CommunityCategorySummaryDTO,
     CommunityMemberSummaryDTO,
     CommunitySummaryDTO,
     ListCommunitiesOutput,
 )
-from app.modules.community.domain.entities import Community, CommunityMember
-from app.modules.community.domain.enums import CommunityMemberStatus, CommunityVisibility
-from app.modules.community.domain.repositories import CommunityMemberRepository, CommunityRepository
+from app.modules.community.application.services._summary_mappers import (
+    category_to_summary,
+    community_to_summary,
+    member_to_summary,
+)
+from app.modules.community.domain.enums import (
+    CommunityMemberStatus,
+    CommunityRole,
+    CommunityVisibility,
+)
+from app.modules.community.domain.repositories import (
+    CommunityCategoryRepository,
+    CommunityMemberRepository,
+    CommunityRepository,
+)
 
-
-def _to_summary(community: Community) -> CommunitySummaryDTO:
-    return CommunitySummaryDTO(
-        community_id=community.id,
-        organization_id=community.organization_id,
-        slug=str(community.slug),
-        name=str(community.name),
-        visibility=community.visibility,
-        created_at=community.created_at,
-        updated_at=community.updated_at,
-        description=str(community.description) if community.description is not None else None,
-        created_by=community.created_by,
-    )
-
-
-def _member_to_summary(member: CommunityMember) -> CommunityMemberSummaryDTO:
-    return CommunityMemberSummaryDTO(
-        member_id=member.id,
-        community_id=member.community_id.value,
-        user_id=member.user_id,
-        role=member.role,
-        status=member.status,
-        joined_at=member.joined_at,
-    )
+_MODERATOR_ROLES = (CommunityRole.MODERATOR, CommunityRole.ADMIN, CommunityRole.OWNER)
 
 
 class GetCommunityService:
@@ -57,11 +48,11 @@ class GetCommunityService:
 
     async def get_by_id(self, community_id: UUID) -> CommunitySummaryDTO | None:
         community = await self._communities.get_by_id(community_id)
-        return _to_summary(community) if community is not None else None
+        return community_to_summary(community) if community is not None else None
 
     async def get_by_slug(self, organization_id: UUID, slug: str) -> CommunitySummaryDTO | None:
         community = await self._communities.get_by_slug(organization_id, slug)
-        return _to_summary(community) if community is not None else None
+        return community_to_summary(community) if community is not None else None
 
 
 class ListCommunitiesService:
@@ -98,7 +89,9 @@ class ListCommunitiesService:
             offset=offset,
             limit=limit,
         )
-        return ListCommunitiesOutput(items=tuple(_to_summary(c) for c in communities), total=total)
+        return ListCommunitiesOutput(
+            items=tuple(community_to_summary(c) for c in communities), total=total
+        )
 
 
 class CommunityMembershipQueryService:
@@ -109,8 +102,27 @@ class CommunityMembershipQueryService:
         self, community_id: UUID, user_id: UUID
     ) -> CommunityMemberSummaryDTO | None:
         member = await self._members.get_by_community_and_user(community_id, user_id)
-        return _member_to_summary(member) if member is not None else None
+        return member_to_summary(member) if member is not None else None
 
     async def is_active_member(self, community_id: UUID, user_id: UUID) -> bool:
         member = await self._members.get_by_community_and_user(community_id, user_id)
         return member is not None and member.status is CommunityMemberStatus.ACTIVE
+
+    async def list_moderators(
+        self, community_id: UUID, *, offset: int = 0, limit: int = 20
+    ) -> list[CommunityMemberSummaryDTO]:
+        members = await self._members.list_by_roles(
+            community_id, _MODERATOR_ROLES, offset=offset, limit=limit
+        )
+        return [member_to_summary(m) for m in members]
+
+
+class CommunityCategoryQueryService:
+    def __init__(self, *, community_category_repository: CommunityCategoryRepository) -> None:
+        self._categories = community_category_repository
+
+    async def list_active(
+        self, *, offset: int = 0, limit: int = 100
+    ) -> list[CommunityCategorySummaryDTO]:
+        categories = await self._categories.list_active(offset=offset, limit=limit)
+        return [category_to_summary(c) for c in categories]

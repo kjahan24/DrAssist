@@ -223,6 +223,99 @@ class TestCountActiveByRole:
         assert await repo.count_active_by_role(community.id, CommunityRole.OWNER) == 0
 
 
+class TestCountActive:
+    async def test_counts_only_active_members(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        community = await _persist_community(db_session, organization_id=organization.id)
+        repo = SqlAlchemyCommunityMemberRepository(db_session)
+
+        active_user = await persist_user(db_session, organization_id=organization.id)
+        left_user = await persist_user(db_session, organization_id=organization.id)
+        await repo.add(
+            CommunityMember.create(community_id=CommunityId(community.id), user_id=active_user.id)
+        )
+        left_member = CommunityMember.create(
+            community_id=CommunityId(community.id), user_id=left_user.id
+        )
+        left_member.leave()
+        await repo.add(left_member)
+        await db_session.commit()
+
+        assert await repo.count_active(community.id) == 1
+
+    async def test_returns_zero_for_a_community_with_no_members(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization = await persist_organization(db_session)
+        community = await _persist_community(db_session, organization_id=organization.id)
+        repo = SqlAlchemyCommunityMemberRepository(db_session)
+
+        assert await repo.count_active(community.id) == 0
+
+
+class TestListByRoles:
+    async def test_returns_only_members_with_the_given_roles(
+        self, db_session: AsyncSession
+    ) -> None:
+        organization = await persist_organization(db_session)
+        community = await _persist_community(db_session, organization_id=organization.id)
+        repo = SqlAlchemyCommunityMemberRepository(db_session)
+
+        moderator_user = await persist_user(db_session, organization_id=organization.id)
+        plain_user = await persist_user(db_session, organization_id=organization.id)
+        moderator = CommunityMember.create(
+            community_id=CommunityId(community.id),
+            user_id=moderator_user.id,
+            role=CommunityRole.MODERATOR,
+        )
+        plain_member = CommunityMember.create(
+            community_id=CommunityId(community.id), user_id=plain_user.id, role=CommunityRole.MEMBER
+        )
+        await repo.add(moderator)
+        await repo.add(plain_member)
+        await db_session.commit()
+
+        results = await repo.list_by_roles(community.id, (CommunityRole.MODERATOR,))
+
+        assert [m.id for m in results] == [moderator.id]
+
+    async def test_excludes_non_active_members(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        community = await _persist_community(db_session, organization_id=organization.id)
+        repo = SqlAlchemyCommunityMemberRepository(db_session)
+
+        user = await persist_user(db_session, organization_id=organization.id)
+        member = CommunityMember.create(
+            community_id=CommunityId(community.id), user_id=user.id, role=CommunityRole.MODERATOR
+        )
+        member.leave()
+        await repo.add(member)
+        await db_session.commit()
+
+        results = await repo.list_by_roles(community.id, (CommunityRole.MODERATOR,))
+
+        assert results == []
+
+    async def test_respects_pagination(self, db_session: AsyncSession) -> None:
+        organization = await persist_organization(db_session)
+        community = await _persist_community(db_session, organization_id=organization.id)
+        repo = SqlAlchemyCommunityMemberRepository(db_session)
+
+        for _ in range(3):
+            user = await persist_user(db_session, organization_id=organization.id)
+            await repo.add(
+                CommunityMember.create(
+                    community_id=CommunityId(community.id),
+                    user_id=user.id,
+                    role=CommunityRole.MODERATOR,
+                )
+            )
+        await db_session.commit()
+
+        page = await repo.list_by_roles(community.id, (CommunityRole.MODERATOR,), offset=1, limit=1)
+        assert len(page) == 1
+
+
 class TestUniqueCommunityUserConstraint:
     async def test_duplicate_membership_row_violates_the_constraint(
         self, db_session: AsyncSession

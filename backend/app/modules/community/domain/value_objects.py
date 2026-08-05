@@ -22,10 +22,16 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.modules.community.domain.exceptions import (
+    CommunityCategoryNameRequiredError,
+    CommunityCategoryNameTooLongError,
     CommunityDescriptionRequiredError,
     CommunityDescriptionTooLongError,
     CommunityNameRequiredError,
     CommunityNameTooLongError,
+    CommunityRuleTitleRequiredError,
+    CommunityRuleTitleTooLongError,
+    CommunityTagNameRequiredError,
+    CommunityTagNameTooLongError,
     InvalidCommunitySlugError,
 )
 from app.shared.domain.value_object import ValueObject
@@ -35,6 +41,9 @@ _SLUG_MIN_LENGTH = 3
 _SLUG_MAX_LENGTH = 64
 _NAME_MAX_LENGTH = 200
 _DESCRIPTION_MAX_LENGTH = 2000
+_CATEGORY_NAME_MAX_LENGTH = 100
+_TAG_NAME_MAX_LENGTH = 50
+_RULE_TITLE_MAX_LENGTH = 200
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +112,59 @@ class CommunityDescription(ValueObject):
             raise CommunityDescriptionRequiredError()
         if len(stripped) > _DESCRIPTION_MAX_LENGTH:
             raise CommunityDescriptionTooLongError(_DESCRIPTION_MAX_LENGTH)
+        object.__setattr__(self, "value", stripped)
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
+class CommunityCategoryName(ValueObject):
+    value: str
+
+    def __post_init__(self) -> None:
+        stripped = self.value.strip()
+        if not stripped:
+            raise CommunityCategoryNameRequiredError()
+        if len(stripped) > _CATEGORY_NAME_MAX_LENGTH:
+            raise CommunityCategoryNameTooLongError(_CATEGORY_NAME_MAX_LENGTH)
+        object.__setattr__(self, "value", stripped)
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
+class CommunityTagName(ValueObject):
+    """Normalized to lowercase so tags are reusable/deduplicated
+    case-insensitively — `"Diabetes"` and `"diabetes"` resolve to the
+    same tag, the same normalize-in-the-value-object approach
+    `CommunitySlug` already establishes for itself."""
+
+    value: str
+
+    def __post_init__(self) -> None:
+        normalized = self.value.strip().lower()
+        if not normalized:
+            raise CommunityTagNameRequiredError()
+        if len(normalized) > _TAG_NAME_MAX_LENGTH:
+            raise CommunityTagNameTooLongError(_TAG_NAME_MAX_LENGTH)
+        object.__setattr__(self, "value", normalized)
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
+class CommunityRuleTitle(ValueObject):
+    value: str
+
+    def __post_init__(self) -> None:
+        stripped = self.value.strip()
+        if not stripped:
+            raise CommunityRuleTitleRequiredError()
+        if len(stripped) > _RULE_TITLE_MAX_LENGTH:
+            raise CommunityRuleTitleTooLongError(_RULE_TITLE_MAX_LENGTH)
         object.__setattr__(self, "value", stripped)
 
     def __str__(self) -> str:
