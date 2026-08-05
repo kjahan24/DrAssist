@@ -48,6 +48,9 @@ from app.modules.patient_history.api.router import router as patient_history_rou
 from app.modules.prescription_ai.presentation.router import router as prescription_ai_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
 from app.modules.procedures.api.router import router as procedures_router
+from app.modules.radiology_interpretation_ai.presentation.router import (
+    router as radiology_interpretation_ai_router,
+)
 from app.modules.schedule.api.router import router as schedule_router
 from app.modules.soap_note_ai.presentation.router import router as soap_note_ai_router
 from app.modules.soap_notes.api.router import router as soap_notes_router
@@ -118,4 +121,9 @@ api_router.include_router(
 )
 api_router.include_router(
     lab_interpretation_ai_router, prefix="/lab-interpretation-ai", tags=["lab-interpretation-ai"]
+)
+api_router.include_router(
+    radiology_interpretation_ai_router,
+    prefix="/radiology-interpretation-ai",
+    tags=["radiology-interpretation-ai"],
 )
