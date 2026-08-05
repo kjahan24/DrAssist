@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints.health import router as health_router
 from app.modules.ai.api.router import router as ai_router
 from app.modules.ai_copilot.api.router import router as ai_copilot_router
+from app.modules.ai_orchestrator.presentation.router import router as ai_orchestrator_router
 from app.modules.appointment.api.router import router as appointment_router
 from app.modules.attachments.api.router import router as attachments_router
 from app.modules.audit_log.api.router import router as audit_log_router
@@ -156,4 +157,9 @@ api_router.include_router(
     patient_education_ai_router,
     prefix="/patient-education-ai",
     tags=["patient-education-ai"],
+)
+api_router.include_router(
+    ai_orchestrator_router,
+    prefix="/ai-orchestrator",
+    tags=["ai-orchestrator"],
 )
