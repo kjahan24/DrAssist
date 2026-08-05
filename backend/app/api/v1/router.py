@@ -50,6 +50,9 @@ from app.modules.pathology_interpretation_ai.presentation.router import (
     router as pathology_interpretation_ai_router,
 )
 from app.modules.patient.api.router import router as patient_router
+from app.modules.patient_education_ai.presentation.router import (
+    router as patient_education_ai_router,
+)
 from app.modules.patient_history.api.router import router as patient_history_router
 from app.modules.prescription_ai.presentation.router import router as prescription_ai_router
 from app.modules.prescriptions.api.router import router as prescriptions_router
@@ -148,4 +151,9 @@ api_router.include_router(
     risk_stratification_ai_router,
     prefix="/risk-stratification-ai",
     tags=["risk-stratification-ai"],
+)
+api_router.include_router(
+    patient_education_ai_router,
+    prefix="/patient-education-ai",
+    tags=["patient-education-ai"],
 )
