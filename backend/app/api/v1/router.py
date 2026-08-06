@@ -46,6 +46,7 @@ from app.modules.lab_results.api.router import router as lab_results_router
 from app.modules.medical_reasoning_ai.presentation.router import (
     router as medical_reasoning_ai_router,
 )
+from app.modules.medical_topics.presentation.router import router as medical_topics_router
 from app.modules.notification.api.router import router as notification_router
 from app.modules.organization.api.router import router as organization_router
 from app.modules.pathology_interpretation_ai.presentation.router import (
@@ -165,3 +166,4 @@ api_router.include_router(
     tags=["ai-orchestrator"],
 )
 api_router.include_router(community_router, prefix="/community", tags=["community"])
+api_router.include_router(medical_topics_router, prefix="/topics", tags=["medical-topics"])
