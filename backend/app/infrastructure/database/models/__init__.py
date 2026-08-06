@@ -13,6 +13,7 @@ from app.modules.chief_complaints.infrastructure import models as chief_complain
 from app.modules.clinical_notes.infrastructure import models as clinical_notes_models
 from app.modules.clinical_reasoning.infrastructure import models as clinical_reasoning_models
 from app.modules.community.infrastructure import models as community_models
+from app.modules.community_posts.infrastructure import models as community_posts_models
 from app.modules.diagnosis.infrastructure import models as diagnosis_models
 from app.modules.differential_diagnosis.infrastructure import (
     models as differential_diagnosis_models,
@@ -43,6 +44,7 @@ __all__ = [
     "clinical_notes_models",
     "clinical_reasoning_models",
     "community_models",
+    "community_posts_models",
     "diagnosis_models",
     "differential_diagnosis_models",
     "doctor_models",
