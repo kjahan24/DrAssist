@@ -1,0 +1,150 @@
+"""Unit tests for `ReopenQuestionService`, using in-memory fakes."""
+
+from uuid import uuid4
+
+import pytest
+
+from app.modules.community.public.dto import CommunityRole
+from app.modules.community_questions.application.dto import ReopenQuestionInput
+from app.modules.community_questions.application.services.reopen_question_service import (
+    ReopenQuestionService,
+)
+from app.modules.community_questions.domain.entities import CommunityQuestion
+from app.modules.community_questions.domain.enums import QuestionStatus
+from app.modules.community_questions.domain.events import CommunityQuestionReopened
+from app.modules.community_questions.domain.exceptions import (
+    InsufficientQuestionRoleError,
+    QuestionNotClosedError,
+    QuestionNotFoundError,
+)
+from app.modules.community_questions.domain.value_objects import QuestionTitle
+from tests.unit.modules.community_questions.application.fakes import (
+    FakeCommunityQueryPort,
+    FakeCommunityQuestionRepository,
+    FakeUnitOfWork,
+    make_community_summary,
+    make_member_summary,
+)
+
+
+def _seeded() -> (
+    tuple[
+        ReopenQuestionService,
+        FakeCommunityQuestionRepository,
+        FakeCommunityQueryPort,
+        FakeUnitOfWork,
+    ]
+):
+    questions = FakeCommunityQuestionRepository()
+    communities = FakeCommunityQueryPort()
+    uow = FakeUnitOfWork()
+    service = ReopenQuestionService(
+        question_repository=questions, community_query_port=communities, unit_of_work=uow
+    )
+    return service, questions, communities, uow
+
+
+async def _seed_closed_question(
+    questions: FakeCommunityQuestionRepository, communities: FakeCommunityQueryPort
+) -> CommunityQuestion:
+    question = CommunityQuestion.create(
+        community_id=uuid4(),
+        organization_id=uuid4(),
+        author_id=uuid4(),
+        primary_topic_id=uuid4(),
+        title=QuestionTitle("Title"),
+        body="Body",
+    )
+    question.publish()
+    question.close()
+    await questions.add(question)
+    communities.add_community(make_community_summary(community_id=question.community_id))
+    return question
+
+
+class TestReopenQuestion:
+    async def test_author_reopens_the_question(self) -> None:
+        service, questions, communities, _ = _seeded()
+        question = await _seed_closed_question(questions, communities)
+
+        await service.execute(
+            ReopenQuestionInput(question_id=question.id, acting_user_id=question.author_id)
+        )
+
+        stored = await questions.get_by_id(question.id)
+        assert stored is not None
+        assert stored.status is QuestionStatus.PUBLISHED
+
+    async def test_moderator_can_reopen_someone_elses_question(self) -> None:
+        service, questions, communities, _ = _seeded()
+        question = await _seed_closed_question(questions, communities)
+        moderator_id = uuid4()
+        communities.add_membership(
+            make_member_summary(
+                community_id=question.community_id,
+                user_id=moderator_id,
+                role=CommunityRole.MODERATOR,
+            )
+        )
+
+        await service.execute(
+            ReopenQuestionInput(question_id=question.id, acting_user_id=moderator_id)
+        )
+        stored = await questions.get_by_id(question.id)
+        assert stored is not None
+        assert stored.status is QuestionStatus.PUBLISHED
+
+    async def test_plain_member_cannot_reopen_someone_elses_question(self) -> None:
+        service, questions, communities, _ = _seeded()
+        question = await _seed_closed_question(questions, communities)
+        member_id = uuid4()
+        communities.add_membership(
+            make_member_summary(
+                community_id=question.community_id, user_id=member_id, role=CommunityRole.MEMBER
+            )
+        )
+
+        with pytest.raises(InsufficientQuestionRoleError):
+            await service.execute(
+                ReopenQuestionInput(question_id=question.id, acting_user_id=member_id)
+            )
+
+    async def test_unknown_question_raises(self) -> None:
+        service, _, _, _ = _seeded()
+        with pytest.raises(QuestionNotFoundError):
+            await service.execute(ReopenQuestionInput(question_id=uuid4(), acting_user_id=uuid4()))
+
+    async def test_not_closed_raises(self) -> None:
+        service, questions, communities, _ = _seeded()
+        question = CommunityQuestion.create(
+            community_id=uuid4(),
+            organization_id=uuid4(),
+            author_id=uuid4(),
+            primary_topic_id=uuid4(),
+            title=QuestionTitle("Title"),
+            body="Body",
+        )
+        question.publish()
+        await questions.add(question)
+        communities.add_community(make_community_summary(community_id=question.community_id))
+
+        with pytest.raises(QuestionNotClosedError):
+            await service.execute(
+                ReopenQuestionInput(question_id=question.id, acting_user_id=question.author_id)
+            )
+
+    async def test_commits_the_unit_of_work(self) -> None:
+        service, questions, communities, uow = _seeded()
+        question = await _seed_closed_question(questions, communities)
+        await service.execute(
+            ReopenQuestionInput(question_id=question.id, acting_user_id=question.author_id)
+        )
+        assert uow.committed is True
+
+    async def test_publishes_a_community_question_reopened_event(self) -> None:
+        service, questions, communities, uow = _seeded()
+        question = await _seed_closed_question(questions, communities)
+        await service.execute(
+            ReopenQuestionInput(question_id=question.id, acting_user_id=question.author_id)
+        )
+        assert any(isinstance(e, CommunityQuestionReopened) for e in uow.published_events)
