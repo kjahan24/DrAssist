@@ -22,6 +22,7 @@ from app.modules.clinical_note_ai.presentation.router import router as clinical_
 from app.modules.clinical_notes.api.router import router as clinical_notes_router
 from app.modules.clinical_reasoning.api.router import router as clinical_reasoning_router
 from app.modules.community.presentation.router import router as community_router
+from app.modules.community_answers.presentation.router import router as community_answers_router
 from app.modules.community_posts.presentation.router import router as community_posts_router
 from app.modules.community_questions.presentation.router import (
     router as community_questions_router,
@@ -175,5 +176,8 @@ api_router.include_router(
 )
 api_router.include_router(
     community_questions_router, prefix="/community-questions", tags=["community-questions"]
+)
+api_router.include_router(
+    community_answers_router, prefix="/community-answers", tags=["community-answers"]
 )
 api_router.include_router(medical_topics_router, prefix="/topics", tags=["medical-topics"])
