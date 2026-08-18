@@ -24,6 +24,9 @@ from app.modules.clinical_reasoning.api.router import router as clinical_reasoni
 from app.modules.community.presentation.router import router as community_router
 from app.modules.community_answers.presentation.router import router as community_answers_router
 from app.modules.community_comments.presentation.router import router as community_comments_router
+from app.modules.community_engagement.presentation.router import (
+    router as community_engagement_router,
+)
 from app.modules.community_posts.presentation.router import router as community_posts_router
 from app.modules.community_questions.presentation.router import (
     router as community_questions_router,
@@ -183,5 +186,8 @@ api_router.include_router(
 )
 api_router.include_router(
     community_comments_router, prefix="/community-comments", tags=["community-comments"]
+)
+api_router.include_router(
+    community_engagement_router, prefix="/engagement", tags=["community-engagement"]
 )
 api_router.include_router(medical_topics_router, prefix="/topics", tags=["medical-topics"])
