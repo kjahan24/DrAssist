@@ -95,3 +95,36 @@ class TestCommentFacade:
 
         summary = await facade.get_comment_summary(comment.id)
         assert summary is not None
+
+    async def test_get_thread_summaries_returns_the_root_and_every_reply(self) -> None:
+        facade, comments = _facade()
+        root = _make_comment()
+        await comments.add(root)
+        reply = CommunityComment.create_reply(
+            parent=root, author_id=uuid4(), body=CommentBody("A reply.")
+        )
+        await comments.add(reply)
+        nested_reply = CommunityComment.create_reply(
+            parent=reply, author_id=uuid4(), body=CommentBody("A nested reply.")
+        )
+        await comments.add(nested_reply)
+
+        summaries = await facade.get_thread_summaries(root.id)
+
+        assert {s.comment_id for s in summaries} == {root.id, reply.id, nested_reply.id}
+
+    async def test_get_thread_summaries_returns_empty_list_for_unknown_root(self) -> None:
+        facade, _ = _facade()
+        summaries = await facade.get_thread_summaries(uuid4())
+        assert summaries == []
+
+    async def test_get_thread_summaries_excludes_comments_outside_the_thread(self) -> None:
+        facade, comments = _facade()
+        root = _make_comment()
+        await comments.add(root)
+        other_root = _make_comment()
+        await comments.add(other_root)
+
+        summaries = await facade.get_thread_summaries(root.id)
+
+        assert {s.comment_id for s in summaries} == {root.id}

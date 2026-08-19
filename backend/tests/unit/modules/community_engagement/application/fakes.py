@@ -310,6 +310,12 @@ class FakeCommentQueryPort(CommentQueryPort):
     async def get_comment_summary(self, comment_id: UUID) -> CommunityCommentSummaryDTO | None:
         return self._summaries.get(comment_id)
 
+    async def get_thread_summaries(self, root_comment_id: UUID) -> list[CommunityCommentSummaryDTO]:
+        root = self._summaries.get(root_comment_id)
+        if root is None:
+            return []
+        return [s for s in self._summaries.values() if s.root_comment_id == root.root_comment_id]
+
 
 class FakeTopicQueryPort(TopicQueryPort):
     def __init__(self) -> None:

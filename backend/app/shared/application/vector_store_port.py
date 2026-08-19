@@ -22,3 +22,11 @@ class VectorStorePort(ABC):
 
     @abstractmethod
     async def delete(self, *, collection: str, vector_id: str) -> None: ...
+
+    @abstractmethod
+    async def retrieve(self, *, collection: str, vector_id: str) -> list[float] | None:
+        """The stored vector for `vector_id`, or `None` if it has never
+        been upserted (or the collection does not exist yet). Lets a
+        caller re-use a previously-embedded vector as a search query
+        without re-embedding or re-supplying the original text."""
+        ...

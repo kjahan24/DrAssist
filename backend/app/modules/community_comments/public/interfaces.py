@@ -16,6 +16,15 @@ exists) without depending on this module's own repositories/entities —
 the same "query port for future consumer modules" shape
 `app.modules.community_answers.public.interfaces.AnswerQueryPort`
 already establishes for itself.
+
+`get_thread_summaries` was added for Phase 5.10 (Community AI Features)'s
+own "Long discussion threads" summarization target — the only way to
+summarize an entire reply thread is to read every comment in it, which
+`get_comment_summary`'s single-id lookup cannot do. It wraps this
+module's own already-existing `CommunityCommentRepository.get_thread`
+(bounded-depth, non-recursive, `(depth, created_at)`-ordered) — no new
+domain capability, purely a narrow, additive read-only extension of this
+port's existing surface.
 """
 
 from abc import ABC, abstractmethod
@@ -30,3 +39,11 @@ class CommentQueryPort(ABC):
 
     @abstractmethod
     async def get_comment_summary(self, comment_id: UUID) -> CommunityCommentSummaryDTO | None: ...
+
+    @abstractmethod
+    async def get_thread_summaries(self, root_comment_id: UUID) -> list[CommunityCommentSummaryDTO]:
+        """Every comment in the thread rooted at `root_comment_id` (the
+        root itself plus every descendant reply), ordered `(depth,
+        created_at)` ascending. Empty list if `root_comment_id` doesn't
+        exist."""
+        ...

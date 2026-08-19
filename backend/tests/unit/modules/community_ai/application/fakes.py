@@ -1,11 +1,13 @@
-"""In-memory test doubles for the Community Moderation module's four
-repositories, Unit of Work, and the eight cross-module query ports it
+"""In-memory test doubles for the Community AI Features module's one
+repository, Unit of Work, and the six cross-module/module-owned ports it
 depends on (`PostQueryPort`/`QuestionQueryPort`/`AnswerQueryPort`/
-`CommentQueryPort`/`CommunityQueryPort`/`UserQueryPort`/`DoctorQueryPort`)
-— each implements the exact same interface its real counterpart does,
-per `docs/backend-architecture/12_testing_architecture.md` ("fakes over
-mocks as the default"). Application-layer service tests depend on these,
-never on a real database or a real peer module.
+`CommentQueryPort`/`CommunityQueryPort`/`ModerationQueryPort`/
+`CommunityAIGeneratorPort`/`SimilarDiscussionSearchPort`/
+`TrustedResourceCatalogPort`) — each implements the exact same interface
+its real counterpart does, per
+`docs/backend-architecture/12_testing_architecture.md` ("fakes over mocks
+as the default"). Application-layer service tests depend on these, never
+on a real database, a real peer module, or a real AI/vector-store call.
 """
 
 import base64
@@ -14,9 +16,18 @@ from datetime import UTC, datetime
 from typing import Protocol, TypeVar
 from uuid import UUID, uuid4
 
-from app.modules.authentication.domain.enums import UserStatus
-from app.modules.authentication.public.dto import UserSummaryDTO
-from app.modules.authentication.public.interfaces import UserQueryPort
+from app.modules.ai.public.dto import (
+    AIFinishReason,
+    AIMessage,
+    AIMessageRole,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    EmbeddingRequest,
+    EmbeddingResponse,
+    PromptVariables,
+    TokenUsage,
+)
+from app.modules.ai.public.interfaces import AIGatewayPort
 from app.modules.community.public.dto import (
     CommunityMemberStatus,
     CommunityMemberSummaryDTO,
@@ -25,6 +36,26 @@ from app.modules.community.public.dto import (
     CommunityVisibility,
 )
 from app.modules.community.public.interfaces import CommunityQueryPort
+from app.modules.community_ai.application.dto import GenerationMetadata
+from app.modules.community_ai.application.ports import (
+    CommunityAIGeneratorPort,
+    SimilarDiscussionSearchPort,
+    TrustedResourceCatalogPort,
+)
+from app.modules.community_ai.domain.entities import AICommunityAnalysis
+from app.modules.community_ai.domain.enums import (
+    AIAnalysisStatus,
+    AIAnalysisType,
+    CommunityContentTargetType,
+)
+from app.modules.community_ai.domain.repositories import AICommunityAnalysisRepository
+from app.modules.community_ai.domain.value_objects import (
+    CommunityDiscussionSummary,
+    MisinformationAssessment,
+    SimilarDiscussion,
+    TrustedMedicalSource,
+    TrustedResourceRecommendation,
+)
 from app.modules.community_answers.public.dto import (
     AnswerStatus,
     AnswerVisibility,
@@ -37,23 +68,9 @@ from app.modules.community_comments.public.dto import (
     CommunityCommentSummaryDTO,
 )
 from app.modules.community_comments.public.interfaces import CommentQueryPort
-from app.modules.community_moderation.domain.entities import (
-    CommunityReport,
-    DoctorVerification,
-    ModerationAction,
-    ModerationRestriction,
-)
-from app.modules.community_moderation.domain.enums import (
-    ModerationTargetType,
-    ReportPriority,
-    ReportStatus,
-)
-from app.modules.community_moderation.domain.repositories import (
-    CommunityReportRepository,
-    DoctorVerificationRepository,
-    ModerationActionRepository,
-    ModerationRestrictionRepository,
-)
+from app.modules.community_moderation.domain.value_objects import UserModerationStatus
+from app.modules.community_moderation.public.dto import ModerationTargetType, VerificationSummaryDTO
+from app.modules.community_moderation.public.interfaces import ModerationQueryPort
 from app.modules.community_posts.public.dto import (
     CommunityPostSummaryDTO,
     PostStatus,
@@ -68,14 +85,10 @@ from app.modules.community_questions.public.dto import (
     QuestionVisibility,
 )
 from app.modules.community_questions.public.interfaces import QuestionQueryPort
-from app.modules.doctor.domain.enums import DoctorStatus
-from app.modules.doctor.public.dto import DoctorSummaryDTO
-from app.modules.doctor.public.interfaces import DoctorQueryPort
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.domain.domain_event import DomainEvent
 
 _CURSOR_SEPARATOR = "|"
-_OPEN_STATUSES = (ReportStatus.OPEN, ReportStatus.UNDER_REVIEW)
 
 
 def _encode_cursor(created_at: datetime, row_id: UUID) -> str:
@@ -229,30 +242,66 @@ def make_member_summary(**overrides: object) -> CommunityMemberSummaryDTO:
     return CommunityMemberSummaryDTO(**defaults)  # type: ignore[arg-type]
 
 
-def make_user_summary(**overrides: object) -> UserSummaryDTO:
+def make_summary(**overrides: object) -> CommunityDiscussionSummary:
     defaults: dict[str, object] = {
-        "user_id": uuid4(),
-        "organization_id": uuid4(),
-        "email": "user@example.com",
-        "first_name": "Jane",
-        "last_name": "Doe",
-        "status": UserStatus.ACTIVE,
+        "key_points": ("Point one.",),
+        "main_claims": ("Claim one.",),
+        "areas_of_agreement": (),
+        "areas_of_disagreement": (),
+        "unanswered_questions": (),
+        "safety_disclaimer": None,
     }
     defaults.update(overrides)
-    return UserSummaryDTO(**defaults)  # type: ignore[arg-type]
+    return CommunityDiscussionSummary(**defaults)  # type: ignore[arg-type]
 
 
-def make_doctor_summary(**overrides: object) -> DoctorSummaryDTO:
+def make_misinformation_assessment(**overrides: object) -> MisinformationAssessment:
+    from app.modules.community_ai.domain.enums import MisinformationRiskLevel
+
     defaults: dict[str, object] = {
-        "doctor_id": uuid4(),
-        "organization_id": uuid4(),
-        "user_id": uuid4(),
-        "employee_id": "EMP-001",
-        "joining_date": datetime.now(UTC).date(),
-        "status": DoctorStatus.ACTIVE,
+        "risk_level": MisinformationRiskLevel.LOW,
+        "claims": (),
+        "evidence_needed": False,
+        "explanation": "No concerning claims found.",
+        "confidence_score": 0.9,
+        "recommended_for_moderation_review": False,
+        "reference_suggestions": (),
     }
     defaults.update(overrides)
-    return DoctorSummaryDTO(**defaults)  # type: ignore[arg-type]
+    return MisinformationAssessment(**defaults)  # type: ignore[arg-type]
+
+
+def make_trusted_source(**overrides: object) -> TrustedMedicalSource:
+    from app.modules.community_ai.domain.enums import ResourceType
+
+    defaults: dict[str, object] = {
+        "title": "MedlinePlus",
+        "url": "https://medlineplus.gov",
+        "resource_type": ResourceType.WEBSITE,
+        "topic_tags": ("general health",),
+    }
+    defaults.update(overrides)
+    return TrustedMedicalSource(**defaults)  # type: ignore[arg-type]
+
+
+def make_resource_recommendation(**overrides: object) -> TrustedResourceRecommendation:
+    from app.modules.community_ai.domain.enums import ResourceType
+
+    defaults: dict[str, object] = {
+        "source_title": "MedlinePlus",
+        "source_url": "https://medlineplus.gov",
+        "resource_type": ResourceType.WEBSITE,
+        "relevance_explanation": "Directly relevant.",
+        "confidence_score": 0.8,
+    }
+    defaults.update(overrides)
+    return TrustedResourceRecommendation(**defaults)  # type: ignore[arg-type]
+
+
+def make_generation_metadata(**overrides: object) -> GenerationMetadata:
+    defaults: dict[str, object] = {"provider": "mock", "model": "mock-model", "latency_ms": 12.5}
+    defaults.update(overrides)
+    return GenerationMetadata(**defaults)  # type: ignore[arg-type]
 
 
 # --- Fake query ports --------------------------------------------------------------
@@ -347,175 +396,160 @@ class FakeCommunityQueryPort(CommunityQueryPort):
         return member is not None and member.status is CommunityMemberStatus.ACTIVE
 
 
-class FakeUserQueryPort(UserQueryPort):
+class FakeModerationQueryPort(ModerationQueryPort):
     def __init__(self) -> None:
-        self._summaries: dict[UUID, UserSummaryDTO] = {}
+        self._statuses: dict[tuple[ModerationTargetType, UUID], str] = {}
 
-    def add_user(self, summary: UserSummaryDTO) -> None:
-        self._summaries[summary.user_id] = summary
+    def set_content_status(
+        self, target_type: ModerationTargetType, target_id: UUID, status: str
+    ) -> None:
+        self._statuses[(target_type, target_id)] = status
 
-    async def user_exists(self, user_id: UUID) -> bool:
-        return user_id in self._summaries
+    async def get_content_moderation_status(
+        self, target_type: ModerationTargetType, target_id: UUID
+    ) -> str:
+        return self._statuses.get((target_type, target_id), "active")
 
-    async def get_user_summary(self, user_id: UUID) -> UserSummaryDTO | None:
-        return self._summaries.get(user_id)
+    async def get_user_moderation_status(
+        self, user_id: UUID, *, community_id: UUID | None = None
+    ) -> UserModerationStatus:
+        return UserModerationStatus(
+            user_id=user_id,
+            community_id=community_id,
+            current_restriction_type=None,
+            restricted_until=None,
+            active_restriction_count=0,
+        )
+
+    async def get_verification_status(self, doctor_id: UUID) -> VerificationSummaryDTO | None:
+        return None
 
 
-class FakeDoctorQueryPort(DoctorQueryPort):
+# --- Fake generation/search/catalog ports -------------------------------------------
+
+
+class FakeCommunityAIGeneratorPort(CommunityAIGeneratorPort):
     def __init__(self) -> None:
-        self._summaries: dict[UUID, DoctorSummaryDTO] = {}
+        self.summary_result: CommunityDiscussionSummary = make_summary()
+        self.misinformation_result: MisinformationAssessment = make_misinformation_assessment()
+        self.resource_results: tuple[TrustedResourceRecommendation, ...] = ()
+        self.metadata: GenerationMetadata = make_generation_metadata()
+        self.raise_error: Exception | None = None
+        self.calls: list[str] = []
 
-    def add_doctor(self, summary: DoctorSummaryDTO) -> None:
-        self._summaries[summary.doctor_id] = summary
+    async def generate_summary(
+        self, *, title: str | None, text: str
+    ) -> tuple[CommunityDiscussionSummary, GenerationMetadata]:
+        self.calls.append("generate_summary")
+        if self.raise_error is not None:
+            raise self.raise_error
+        return self.summary_result, self.metadata
 
-    async def doctor_exists(self, doctor_id: UUID) -> bool:
-        return doctor_id in self._summaries
+    async def generate_misinformation_assessment(
+        self, *, title: str | None, text: str
+    ) -> tuple[MisinformationAssessment, GenerationMetadata]:
+        self.calls.append("generate_misinformation_assessment")
+        if self.raise_error is not None:
+            raise self.raise_error
+        return self.misinformation_result, self.metadata
 
-    async def is_active(self, doctor_id: UUID) -> bool:
-        summary = self._summaries.get(doctor_id)
-        return summary is not None and summary.status is DoctorStatus.ACTIVE
-
-    async def get_doctor_summary(self, doctor_id: UUID) -> DoctorSummaryDTO | None:
-        return self._summaries.get(doctor_id)
-
-
-# --- Fake repositories --------------------------------------------------------------
+    async def generate_resource_recommendations(
+        self, *, title: str | None, text: str, catalog: Sequence[TrustedMedicalSource]
+    ) -> tuple[tuple[TrustedResourceRecommendation, ...], GenerationMetadata]:
+        self.calls.append("generate_resource_recommendations")
+        if self.raise_error is not None:
+            raise self.raise_error
+        return self.resource_results, self.metadata
 
 
-class FakeCommunityReportRepository(CommunityReportRepository):
+class FakeSimilarDiscussionSearchPort(SimilarDiscussionSearchPort):
     def __init__(self) -> None:
-        self._reports: dict[UUID, CommunityReport] = {}
+        self.indexed: list[tuple[CommunityContentTargetType, UUID]] = []
+        self.candidates: tuple[SimilarDiscussion, ...] = ()
+        self.raise_error: Exception | None = None
 
-    async def get_by_id(self, report_id: UUID) -> CommunityReport | None:
-        return self._reports.get(report_id)
+    async def index_target(
+        self,
+        *,
+        target_type: CommunityContentTargetType,
+        target_id: UUID,
+        organization_id: UUID,
+        text: str,
+    ) -> None:
+        if self.raise_error is not None:
+            raise self.raise_error
+        self.indexed.append((target_type, target_id))
 
-    async def get_open_report(
-        self, reporter_id: UUID, target_type: ModerationTargetType, target_id: UUID
-    ) -> CommunityReport | None:
-        matches = [
-            r
-            for r in self._reports.values()
-            if r.reporter_id == reporter_id
-            and r.target_type is target_type
-            and r.target_id == target_id
-            and r.status in _OPEN_STATUSES
-        ]
-        matches.sort(key=lambda r: r.created_at, reverse=True)
-        return matches[0] if matches else None
+    async def find_similar(
+        self,
+        *,
+        target_type: CommunityContentTargetType,
+        target_id: UUID,
+        organization_id: UUID,
+        limit: int,
+    ) -> tuple[SimilarDiscussion, ...]:
+        if self.raise_error is not None:
+            raise self.raise_error
+        return self.candidates[:limit]
 
-    async def list_reports(
+
+class FakeTrustedResourceCatalogPort(TrustedResourceCatalogPort):
+    def __init__(self) -> None:
+        self.sources: tuple[TrustedMedicalSource, ...] = (make_trusted_source(),)
+
+    async def list_sources(self, *, keywords: Sequence[str] = ()) -> Sequence[TrustedMedicalSource]:
+        return self.sources
+
+
+# --- Fake repository -----------------------------------------------------------------
+
+
+class FakeAICommunityAnalysisRepository(AICommunityAnalysisRepository):
+    def __init__(self) -> None:
+        self._analyses: dict[UUID, AICommunityAnalysis] = {}
+
+    async def get_by_id(self, analysis_id: UUID) -> AICommunityAnalysis | None:
+        return self._analyses.get(analysis_id)
+
+    async def get_by_target(
+        self,
+        target_type: CommunityContentTargetType,
+        target_id: UUID,
+        analysis_type: AIAnalysisType,
+    ) -> AICommunityAnalysis | None:
+        for analysis in self._analyses.values():
+            if (
+                analysis.target_type is target_type
+                and analysis.target_id == target_id
+                and analysis.analysis_type is analysis_type
+            ):
+                return analysis
+        return None
+
+    async def list_analyses(
         self,
         *,
         organization_id: UUID,
-        community_id: UUID | None = None,
-        status: ReportStatus | None = None,
-        priority: ReportPriority | None = None,
-        assigned_moderator_id: UUID | None = None,
+        target_type: CommunityContentTargetType | None = None,
+        target_id: UUID | None = None,
+        analysis_type: AIAnalysisType | None = None,
+        status: AIAnalysisStatus | None = None,
         cursor: str | None = None,
         limit: int = 20,
-    ) -> tuple[Sequence[CommunityReport], str | None]:
-        matches = [r for r in self._reports.values() if r.organization_id == organization_id]
-        if community_id is not None:
-            matches = [r for r in matches if r.community_id == community_id]
+    ) -> tuple[Sequence[AICommunityAnalysis], str | None]:
+        matches = [a for a in self._analyses.values() if a.organization_id == organization_id]
+        if target_type is not None:
+            matches = [a for a in matches if a.target_type is target_type]
+        if target_id is not None:
+            matches = [a for a in matches if a.target_id == target_id]
+        if analysis_type is not None:
+            matches = [a for a in matches if a.analysis_type is analysis_type]
         if status is not None:
-            matches = [r for r in matches if r.status is status]
-        if priority is not None:
-            matches = [r for r in matches if r.priority is priority]
-        if assigned_moderator_id is not None:
-            matches = [r for r in matches if r.assigned_moderator_id == assigned_moderator_id]
+            matches = [a for a in matches if a.status is status]
         return _paginate(matches, cursor=cursor, limit=limit)
 
-    async def add(self, report: CommunityReport) -> None:
-        self._reports[report.id] = report
-
-
-class FakeModerationActionRepository(ModerationActionRepository):
-    def __init__(self) -> None:
-        self._actions: dict[UUID, ModerationAction] = {}
-
-    async def get_by_id(self, action_id: UUID) -> ModerationAction | None:
-        return self._actions.get(action_id)
-
-    async def get_latest_for_target(
-        self, target_type: ModerationTargetType, target_id: UUID
-    ) -> ModerationAction | None:
-        matches = [
-            a
-            for a in self._actions.values()
-            if a.target_type is target_type and a.target_id == target_id
-        ]
-        matches.sort(key=lambda a: a.created_at, reverse=True)
-        return matches[0] if matches else None
-
-    async def list_for_target(
-        self,
-        target_type: ModerationTargetType,
-        target_id: UUID,
-        *,
-        cursor: str | None = None,
-        limit: int = 20,
-    ) -> tuple[Sequence[ModerationAction], str | None]:
-        matches = [
-            a
-            for a in self._actions.values()
-            if a.target_type is target_type and a.target_id == target_id
-        ]
-        return _paginate(matches, cursor=cursor, limit=limit)
-
-    async def list_for_actor(
-        self, actor_id: UUID, *, cursor: str | None = None, limit: int = 20
-    ) -> tuple[Sequence[ModerationAction], str | None]:
-        matches = [a for a in self._actions.values() if a.actor_id == actor_id]
-        return _paginate(matches, cursor=cursor, limit=limit)
-
-    async def add(self, action: ModerationAction) -> None:
-        self._actions[action.id] = action
-
-
-class FakeModerationRestrictionRepository(ModerationRestrictionRepository):
-    def __init__(self) -> None:
-        self._restrictions: dict[UUID, ModerationRestriction] = {}
-
-    async def get_by_id(self, restriction_id: UUID) -> ModerationRestriction | None:
-        return self._restrictions.get(restriction_id)
-
-    async def list_active_for_user(
-        self,
-        user_id: UUID,
-        *,
-        community_id: UUID | None = None,
-        now: datetime | None = None,
-    ) -> Sequence[ModerationRestriction]:
-        matches = [r for r in self._restrictions.values() if r.user_id == user_id]
-        if community_id is not None:
-            matches = [r for r in matches if r.community_id == community_id]
-        return [r for r in matches if r.is_active(now=now)]
-
-    async def list_for_user(
-        self, user_id: UUID, *, cursor: str | None = None, limit: int = 20
-    ) -> tuple[Sequence[ModerationRestriction], str | None]:
-        matches = [r for r in self._restrictions.values() if r.user_id == user_id]
-        return _paginate(matches, cursor=cursor, limit=limit)
-
-    async def add(self, restriction: ModerationRestriction) -> None:
-        self._restrictions[restriction.id] = restriction
-
-
-class FakeDoctorVerificationRepository(DoctorVerificationRepository):
-    def __init__(self) -> None:
-        self._verifications: dict[UUID, DoctorVerification] = {}
-
-    async def get_by_id(self, verification_id: UUID) -> DoctorVerification | None:
-        return self._verifications.get(verification_id)
-
-    async def get_by_doctor_id(self, doctor_id: UUID) -> DoctorVerification | None:
-        for verification in self._verifications.values():
-            if verification.doctor_id == doctor_id:
-                return verification
-        return None
-
-    async def add(self, verification: DoctorVerification) -> None:
-        self._verifications[verification.id] = verification
+    async def add(self, analysis: AICommunityAnalysis) -> None:
+        self._analyses[analysis.id] = analysis
 
 
 class _HasCreatedAtAndId(Protocol):
@@ -540,6 +574,53 @@ def _paginate(
         last = page[-1]
         next_cursor = _encode_cursor(last.created_at, last.id)
     return page, next_cursor
+
+
+class FakeAIGateway(AIGatewayPort):
+    def __init__(
+        self,
+        *,
+        chat_response: ChatCompletionResponse | None = None,
+        rendered_prompts: dict[str, str] | None = None,
+        chat_error: Exception | None = None,
+    ) -> None:
+        self._chat_response = chat_response
+        self._rendered_prompts = rendered_prompts or {}
+        self._chat_error = chat_error
+        self.received_chat_requests: list[ChatCompletionRequest] = []
+        self.rendered_calls: list[tuple[str, int | None]] = []
+
+    async def generate_chat_completion(
+        self, request: ChatCompletionRequest
+    ) -> ChatCompletionResponse:
+        self.received_chat_requests.append(request)
+        if self._chat_error is not None:
+            raise self._chat_error
+        if self._chat_response is not None:
+            return self._chat_response
+        return ChatCompletionResponse(
+            message=AIMessage(role=AIMessageRole.ASSISTANT, content='{"result": "ok"}'),
+            model=request.model,
+            provider=request.model.provider,
+            usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            finish_reason=AIFinishReason.STOP,
+            latency_ms=1.0,
+        )
+
+    async def generate_embedding(self, request: EmbeddingRequest) -> EmbeddingResponse:
+        return EmbeddingResponse(
+            embeddings=tuple((0.1, 0.2, 0.3) for _ in request.input_texts),
+            model=request.model,
+            provider=request.model.provider,
+        )
+
+    async def render_prompt(
+        self, name: str, variables: PromptVariables, *, version: int | None = None
+    ) -> str:
+        self.rendered_calls.append((name, version))
+        if name in self._rendered_prompts:
+            return self._rendered_prompts[name]
+        return f"rendered:{name}:v{version}"
 
 
 class FakeUnitOfWork(UnitOfWork):

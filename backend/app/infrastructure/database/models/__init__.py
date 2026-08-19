@@ -13,6 +13,7 @@ from app.modules.chief_complaints.infrastructure import models as chief_complain
 from app.modules.clinical_notes.infrastructure import models as clinical_notes_models
 from app.modules.clinical_reasoning.infrastructure import models as clinical_reasoning_models
 from app.modules.community.infrastructure import models as community_models
+from app.modules.community_ai.infrastructure import models as community_ai_models
 from app.modules.community_answers.infrastructure import models as community_answers_models
 from app.modules.community_comments.infrastructure import models as community_comments_models
 from app.modules.community_engagement.infrastructure import models as community_engagement_models
@@ -50,6 +51,7 @@ __all__ = [
     "chief_complaints_models",
     "clinical_notes_models",
     "clinical_reasoning_models",
+    "community_ai_models",
     "community_answers_models",
     "community_comments_models",
     "community_engagement_models",

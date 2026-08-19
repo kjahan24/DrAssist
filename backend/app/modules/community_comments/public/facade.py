@@ -21,6 +21,7 @@ from uuid import UUID
 from app.modules.community_comments.application.services._summary_mappers import (
     comment_to_summary,
 )
+from app.modules.community_comments.domain.entities import MAX_COMMENT_DEPTH
 from app.modules.community_comments.domain.repositories import CommunityCommentRepository
 from app.modules.community_comments.public.dto import CommunityCommentSummaryDTO
 from app.modules.community_comments.public.interfaces import CommentQueryPort
@@ -36,3 +37,7 @@ class CommentFacade(CommentQueryPort):
     async def get_comment_summary(self, comment_id: UUID) -> CommunityCommentSummaryDTO | None:
         comment = await self._comments.get_by_id(comment_id)
         return comment_to_summary(comment) if comment is not None else None
+
+    async def get_thread_summaries(self, root_comment_id: UUID) -> list[CommunityCommentSummaryDTO]:
+        comments = await self._comments.get_thread(root_comment_id, max_depth=MAX_COMMENT_DEPTH)
+        return [comment_to_summary(c) for c in comments]
