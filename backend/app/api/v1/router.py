@@ -27,6 +27,9 @@ from app.modules.community_comments.presentation.router import router as communi
 from app.modules.community_engagement.presentation.router import (
     router as community_engagement_router,
 )
+from app.modules.community_moderation.presentation.router import (
+    router as community_moderation_router,
+)
 from app.modules.community_posts.presentation.router import router as community_posts_router
 from app.modules.community_questions.presentation.router import (
     router as community_questions_router,
@@ -189,5 +192,8 @@ api_router.include_router(
 )
 api_router.include_router(
     community_engagement_router, prefix="/engagement", tags=["community-engagement"]
+)
+api_router.include_router(
+    community_moderation_router, prefix="/moderation", tags=["community-moderation"]
 )
 api_router.include_router(medical_topics_router, prefix="/topics", tags=["medical-topics"])

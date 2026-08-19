@@ -16,6 +16,7 @@ from app.modules.community.infrastructure import models as community_models
 from app.modules.community_answers.infrastructure import models as community_answers_models
 from app.modules.community_comments.infrastructure import models as community_comments_models
 from app.modules.community_engagement.infrastructure import models as community_engagement_models
+from app.modules.community_moderation.infrastructure import models as community_moderation_models
 from app.modules.community_posts.infrastructure import models as community_posts_models
 from app.modules.community_questions.infrastructure import (
     models as community_questions_models,
@@ -53,6 +54,7 @@ __all__ = [
     "community_comments_models",
     "community_engagement_models",
     "community_models",
+    "community_moderation_models",
     "community_posts_models",
     "community_questions_models",
     "diagnosis_models",
