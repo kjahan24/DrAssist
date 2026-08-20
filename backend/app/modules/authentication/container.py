@@ -15,6 +15,20 @@ It deliberately does **not** build `RegisterUser`/`AuthenticateUser`/
 `RefreshAccessToken`/`RevokeSession` or any HTTP endpoint — those are a
 follow-up task, per the brief this module was built against.
 
+**Register/Login addendum** — a later task ("Implement the missing
+authentication endpoints") added `RegisterUser`/`AuthenticateUser`
+(`application/use_cases/`) and wired `POST /register`/`POST /login`
+(`api/router.py`) to satisfy the current frontend's Sign Up/Sign In pages,
+which were calling `/auth/register`/`/auth/login` against a backend that
+had no matching route. Both use cases are built directly against this
+module's own repositories/`UnitOfWork` (the same "not on the public
+facade" shape every RBAC use case above already uses — see
+`public/facade.py`'s own docstring for why cross-module read access is a
+separate, narrower concern), not exposed through `AuthenticationFacade`.
+`RefreshAccessToken`/`RevokeSession` remain out of scope: no frontend page
+calls either yet. `build_authentication_facade` itself is unchanged by
+this addendum.
+
 **RBAC extension** — a later task ("Implement the RBAC (Roles &
 Permissions) module") found `Role`/`Permission`/`RolePermission`/
 `UserRole` already fully implemented here (per the scope note above) and

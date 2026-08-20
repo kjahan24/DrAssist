@@ -2,9 +2,15 @@
 
 Each names the invariant it protects, not the eventual HTTP outcome — see
 `docs/backend-architecture/06_configuration_logging_exceptions.md`. HTTP
-translation is deferred to the future API layer that will call the
-use cases raising these (the login/register flows this task explicitly
-excludes).
+translation happens via `app.middlewares.error_handler`'s
+`_map_domain_error` naming-convention heuristic — see `InvalidCredentialsError`'s
+own docstring for why it's named the way it is.
+
+`DuplicateEmailError`, `AccountLockedError`, and `InactiveAccountError`
+were already defined here before the login/register flows existed — see
+`application.use_cases.register_user.RegisterUser` and
+`.authenticate_user.AuthenticateUser` for where they're now actually
+raised.
 """
 
 from uuid import UUID
@@ -165,3 +171,21 @@ class RefreshTokenAlreadyUsedError(DomainError):
     def __init__(self, token_id: UUID) -> None:
         super().__init__(f"refresh token {token_id} has already been used or revoked")
         self.token_id = token_id
+
+
+class InvalidCredentialsError(DomainError):
+    """Raised by `AuthenticateUser` for *both* "no user with this email"
+    and "wrong password" — never distinguished, the standard
+    anti-user-enumeration posture (see
+    `docs/backend-architecture/07_security_layer.md §7`). Named without
+    "NotFound"/any of `_map_domain_error`'s conflict keywords
+    (`app.middlewares.error_handler`), so it resolves to 422 — the same
+    generic-validation-outcome bucket the rest of this codebase's login-
+    adjacent failures already fall into; this task's own instruction to
+    "follow the existing DrAssist authentication architecture exactly"
+    means reusing that already-established heuristic rather than adding a
+    401 special case for this one module.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("invalid email or password")

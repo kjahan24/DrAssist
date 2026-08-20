@@ -4,9 +4,16 @@ SQLAlchemy counterpart does, per
 `docs/backend-architecture/12_testing_architecture.md` ("fakes over mocks
 as the default"). Application-layer use case tests depend on these, never
 on a real database.
+
+`FakeOrganizationProvisioningPort` fakes a cross-module port
+(`app.modules.organization.public.interfaces`), the same "each module's
+own test package defines its own local fake for a peer module's port"
+pattern `tests.unit.modules.patient.application.fakes
+.FakeOrganizationQueryPort` already establishes for the sibling
+(read-only) port.
 """
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.modules.authentication.domain.entities import (
     Permission,
@@ -22,6 +29,9 @@ from app.modules.authentication.domain.repositories import (
     UserRepository,
     UserSessionRepository,
 )
+from app.modules.organization.domain.enums import OrganizationType
+from app.modules.organization.public.dto import OrganizationSummaryDTO
+from app.modules.organization.public.interfaces import OrganizationProvisioningPort
 from app.shared.application.unit_of_work import UnitOfWork
 from app.shared.domain.common_value_objects import EmailAddress
 from app.shared.domain.domain_event import DomainEvent
@@ -37,6 +47,12 @@ class FakeUserRepository(UserRepository):
     async def get_by_email(self, *, organization_id: UUID, email: EmailAddress) -> User | None:
         for user in self._users.values():
             if user.organization_id == organization_id and user.email == email:
+                return user
+        return None
+
+    async def get_by_email_any_organization(self, email: EmailAddress) -> User | None:
+        for user in self._users.values():
+            if user.email == email:
                 return user
         return None
 
@@ -175,6 +191,33 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
 
     async def add(self, token: RefreshToken) -> None:
         self._tokens[token.id] = token
+
+
+class FakeOrganizationProvisioningPort(OrganizationProvisioningPort):
+    """`RegisterUser` only calls `provision_organization` — every call
+    creates a fresh, distinct organization, matching the real
+    `OrganizationFacade`'s own always-succeeds behavior (see that class's
+    own docstring: the generated code is collision-safe in practice)."""
+
+    def __init__(self) -> None:
+        self.provisioned: list[OrganizationSummaryDTO] = []
+
+    async def provision_organization(
+        self, *, name: str, email: str | None = None
+    ) -> OrganizationSummaryDTO:
+        summary = OrganizationSummaryDTO(
+            organization_id=uuid4(),
+            organization_code=f"ORG-{uuid4().hex[:10].upper()}",
+            name=name,
+            type=OrganizationType.CLINIC,
+            is_active=True,
+            timezone="UTC",
+            currency="USD",
+            language="en",
+            email=email,
+        )
+        self.provisioned.append(summary)
+        return summary
 
 
 class FakeUnitOfWork(UnitOfWork):

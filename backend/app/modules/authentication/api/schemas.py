@@ -1,10 +1,14 @@
 """Pydantic v2 request/response schemas for the Authentication module.
 
-Not yet wired to any route — `api/router.py` registers no endpoints in
-this phase (login/register are explicitly out of scope; see
-`container.py`). These schemas exist so the wire shape is defined ahead of
-time and so `RoleResponse`/`PermissionResponse` can already back the RBAC
-administration use cases' eventual endpoints.
+`RoleResponse`/`PermissionResponse`/etc. back the RBAC administration
+endpoints. `RegisterRequest`/`LoginRequest`/`RegisterResponse`/
+`LoginResponse`/`AuthenticatedPrincipalResponse` back the register/login
+endpoints — `LoginResponse`'s field names (`access_token`, `principal`)
+and `AuthenticatedPrincipalResponse`'s (`user_id`, `organization_id`,
+`session_id`, `email`, `permissions`) are load-bearing: they match
+`frontend/src/app/(auth)/login/page.tsx`'s own `LoginResponse` TS
+interface and `frontend/src/types/index.ts`'s `AuthenticatedPrincipal`
+type exactly, field for field.
 
 Schemas never expose a domain entity directly, and never accept
 `organization_id`/`status`/other server-controlled fields from the client
@@ -12,12 +16,33 @@ Schemas never expose a domain entity directly, and never accept
 prevention).
 """
 
+import re
 from uuid import UUID
 
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, field_validator
 
 from app.modules.authentication.domain.enums import UserStatus
 from app.schemas.base import ORJSONModel
+
+_PASSWORD_LOWERCASE = re.compile(r"[a-z]")
+_PASSWORD_UPPERCASE = re.compile(r"[A-Z]")
+_PASSWORD_DIGIT = re.compile(r"[0-9]")
+
+
+def _validate_password_strength(value: str) -> str:
+    """Mirrors `frontend/src/lib/auth/validation.ts`'s `passwordSchema`
+    exactly (min length 8, needs one lowercase/uppercase/digit) — client
+    and server must agree on the policy, and the server is the one that
+    actually enforces it; the frontend copy is only ever a UX head start."""
+    if len(value) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if not _PASSWORD_LOWERCASE.search(value):
+        raise ValueError("Password must include a lowercase letter")
+    if not _PASSWORD_UPPERCASE.search(value):
+        raise ValueError("Password must include an uppercase letter")
+    if not _PASSWORD_DIGIT.search(value):
+        raise ValueError("Password must include a number")
+    return value
 
 
 class UserResponse(ORJSONModel):
@@ -82,3 +107,43 @@ class AssignRoleToUserRequest(ORJSONModel):
     doesn't belong in the request body."""
 
     role_id: UUID
+
+
+# --- Register / Login ----------------------------------------------------
+
+
+class RegisterRequest(ORJSONModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def _validate_password(cls, value: str) -> str:
+        return _validate_password_strength(value)
+
+
+class RegisterResponse(ORJSONModel):
+    user_id: UUID
+    organization_id: UUID
+    email: EmailStr
+
+
+class LoginRequest(ORJSONModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthenticatedPrincipalResponse(ORJSONModel):
+    user_id: UUID
+    organization_id: UUID
+    session_id: UUID
+    email: EmailStr
+    permissions: list[str]
+
+
+class LoginResponse(ORJSONModel):
+    access_token: str
+    refresh_token: str
+    principal: AuthenticatedPrincipalResponse

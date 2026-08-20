@@ -1,16 +1,50 @@
 """Data Transfer Objects for the Authentication module's application layer.
 
 Distinct from both domain entities (never leave the module) and API
-schemas (`api/schemas.py`, not yet wired to any endpoint). Use-case
-input/output DTOs are plain, immutable dataclasses; the two DTOs at the
-bottom (`UserSummaryDTO`, `AuthenticatedPrincipalDTO`) are also the ones
-re-exported from `public/dto.py` for other modules to depend on.
+schemas (`api/schemas.py`). Use-case input/output DTOs are plain,
+immutable dataclasses; the two DTOs at the bottom (`UserSummaryDTO`,
+`AuthenticatedPrincipalDTO`) are also the ones re-exported from
+`public/dto.py` for other modules to depend on.
 """
 
 from dataclasses import dataclass
 from uuid import UUID
 
 from app.modules.authentication.domain.enums import UserStatus
+
+# --- RegisterUser -------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterUserInput:
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterUserOutput:
+    user_id: UUID
+    organization_id: UUID
+    email: str
+
+
+# --- AuthenticateUser -----------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticateUserInput:
+    email: str
+    password: str
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticateUserOutput:
+    access_token: str
+    refresh_token: str
+    principal: "AuthenticatedPrincipalDTO"
+
 
 # --- CreateRole -------------------------------------------------------
 

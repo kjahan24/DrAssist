@@ -100,6 +100,23 @@ class UserModel(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Audi
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        # Global (cross-organization) uniqueness — added for self-service
+        # registration/login (`application/use_cases/register_user.py`'s
+        # own docstring): both flows resolve a user from email alone, with
+        # no `organization_id` yet known, so email must be unique
+        # system-wide, not just per-tenant. This is what actually closes
+        # the race condition an application-level check-then-act
+        # (`UserRepository.get_by_email_any_organization`) can't fully
+        # close on its own — the same "partial unique index as a
+        # concurrency safety net under an application-level check" pattern
+        # `uq_users_organization_id_email` above already establishes for
+        # its own (narrower) scope.
+        Index(
+            "uq_users_email_global",
+            "email",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         Index("ix_users_organization_id", "organization_id"),
         Index("ix_users_status", "organization_id", "status"),
         # `name=` here is the *bare* constraint-name token, not the full

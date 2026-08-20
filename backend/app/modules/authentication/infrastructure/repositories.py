@@ -75,6 +75,13 @@ class SqlAlchemyUserRepository(UserRepository):
         model = (await self._session.execute(stmt)).scalar_one_or_none()
         return user_to_domain(model) if model is not None else None
 
+    async def get_by_email_any_organization(self, email: EmailAddress) -> User | None:
+        stmt = select(UserModel).where(
+            UserModel.email == str(email), UserModel.deleted_at.is_(None)
+        )
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return user_to_domain(model) if model is not None else None
+
     async def list_by_organization(
         self, *, organization_id: UUID, offset: int = 0, limit: int = 20
     ) -> list[User]:

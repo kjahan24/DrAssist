@@ -31,6 +31,22 @@ class UserRepository(ABC):
     async def get_by_email(self, *, organization_id: UUID, email: EmailAddress) -> User | None: ...
 
     @abstractmethod
+    async def get_by_email_any_organization(self, email: EmailAddress) -> User | None:
+        """Unscoped by tenant — added for `RegisterUser`/`AuthenticateUser`
+        (`application/use_cases/`), the first two use cases in this module
+        that must resolve a user from *only* an email address, with no
+        `organization_id` already known (self-service signup collects no
+        organization field at all, and login likewise only collects
+        email/password — see `RegisterUser`'s own docstring). `get_by_email`
+        above cannot serve this: it requires the caller to already know
+        which tenant to look in, which is exactly the piece of information
+        neither flow has yet. Email is therefore enforced unique *globally*
+        by these two use cases (one account per email, system-wide), not
+        just per-organization as `uq_users_organization_id_email` alone
+        would allow — see `RegisterUser`'s own docstring for why."""
+        ...
+
+    @abstractmethod
     async def list_by_organization(
         self, *, organization_id: UUID, offset: int = 0, limit: int = 20
     ) -> list[User]: ...

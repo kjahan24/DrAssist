@@ -1,13 +1,17 @@
 """HTTP routes for the Authentication module.
 
-Login/register/refresh/logout remain explicitly out of scope (see
-`container.py`) — this router covers only the RBAC administration
-surface (`Role`/`Permission`/assignments) already backed by
-`api/dependencies.py`, plus a read-only `GET /users/{user_id}`. Roles are
-always created within the caller's own organization via this endpoint
-(`is_system_role` stays `False`, matching `CreateRoleRequest`'s own
-excluded-field shape — system roles are seed data, not something this
-endpoint creates).
+Covers the RBAC administration surface (`Role`/`Permission`/assignments),
+a read-only `GET /users/{user_id}`, and — added for the current
+frontend's Sign Up / Sign In pages — `POST /register` and `POST /login`
+(see `application/use_cases/register_user.py`/`.authenticate_user.py` for
+the full design). Refresh/logout remain out of scope: no frontend page
+calls either today, and building them without a real caller would be
+exactly the kind of speculative surface this codebase avoids elsewhere.
+
+Neither `register` nor `login` depends on `CurrentUser` — by definition,
+no authenticated principal exists yet for either request, the same
+reasoning `app.modules.organization.api.router`'s own `POST /organizations`
+docstring gives for itself.
 """
 
 from typing import Annotated
@@ -22,11 +26,13 @@ from app.modules.authentication.api.dependencies import (
     get_activate_role_use_case,
     get_assign_permission_to_role_use_case,
     get_assign_role_to_user_use_case,
+    get_authenticate_user_use_case,
     get_create_permission_use_case,
     get_create_role_use_case,
     get_deactivate_role_use_case,
     get_delete_role_use_case,
     get_permission_query_service,
+    get_register_user_use_case,
     get_role_query_service,
     get_user_query_port,
 )
@@ -35,7 +41,11 @@ from app.modules.authentication.api.schemas import (
     AssignRoleToUserRequest,
     CreatePermissionRequest,
     CreateRoleRequest,
+    LoginRequest,
+    LoginResponse,
     PermissionResponse,
+    RegisterRequest,
+    RegisterResponse,
     RoleResponse,
     UserResponse,
 )
@@ -43,10 +53,12 @@ from app.modules.authentication.application.dto import (
     ActivateRoleInput,
     AssignPermissionToRoleInput,
     AssignRoleToUserInput,
+    AuthenticateUserInput,
     CreatePermissionInput,
     CreateRoleInput,
     DeactivateRoleInput,
     DeleteRoleInput,
+    RegisterUserInput,
 )
 from app.modules.authentication.application.services.permission_query_service import (
     PermissionQueryService,
@@ -59,10 +71,12 @@ from app.modules.authentication.application.use_cases.assign_permission_to_role 
 from app.modules.authentication.application.use_cases.assign_role_to_user import (
     AssignRoleToUser,
 )
+from app.modules.authentication.application.use_cases.authenticate_user import AuthenticateUser
 from app.modules.authentication.application.use_cases.create_permission import CreatePermission
 from app.modules.authentication.application.use_cases.create_role import CreateRole
 from app.modules.authentication.application.use_cases.deactivate_role import DeactivateRole
 from app.modules.authentication.application.use_cases.delete_role import DeleteRole
+from app.modules.authentication.application.use_cases.register_user import RegisterUser
 from app.modules.authentication.public.interfaces import UserQueryPort
 from app.schemas.base import PaginatedResponse
 
@@ -81,6 +95,8 @@ AssignPermissionUseCase = Annotated[
     AssignPermissionToRole, Depends(get_assign_permission_to_role_use_case)
 ]
 AssignRoleUseCase = Annotated[AssignRoleToUser, Depends(get_assign_role_to_user_use_case)]
+RegisterUseCase = Annotated[RegisterUser, Depends(get_register_user_use_case)]
+LoginUseCase = Annotated[AuthenticateUser, Depends(get_authenticate_user_use_case)]
 
 
 def _ensure_same_organization_if_scoped(
@@ -111,6 +127,28 @@ async def _get_permission_response(
     if summary is None:
         raise NotFoundError(f"no permission found with id {permission_id}")
     return PermissionResponse.model_validate(summary)
+
+
+# --- Register / Login -------------------------------------------------------
+
+
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+async def register(body: RegisterRequest, use_case: RegisterUseCase) -> RegisterResponse:
+    output = await use_case.execute(
+        RegisterUserInput(
+            email=body.email,
+            password=body.password,
+            first_name=body.first_name,
+            last_name=body.last_name,
+        )
+    )
+    return RegisterResponse.model_validate(output)
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(body: LoginRequest, use_case: LoginUseCase) -> LoginResponse:
+    output = await use_case.execute(AuthenticateUserInput(email=body.email, password=body.password))
+    return LoginResponse.model_validate(output)
 
 
 # --- Users (read-only) -----------------------------------------------------

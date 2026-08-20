@@ -17,18 +17,28 @@ and does not modify the Authentication module or its tables — the
 `docs/database/08_migration_strategy.md §6` and the Authentication
 migration's own docstring) remains deferred; adding it would mean
 altering Authentication's schema, which is explicitly out of scope here.
+
+**Self-service registration addendum** — `build_organization_facade` now
+also wires `CreateOrganization` behind `OrganizationFacade`'s new
+`OrganizationProvisioningPort` (see `public/interfaces.py`'s own
+docstring), so `app.modules.authentication.application.use_cases
+.register_user.RegisterUser` can provision a tenant for a brand new user
+through this module's public surface only, never its internals.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.container import get_event_bus
 from app.modules.organization.application.services.organization_query_service import (
     OrganizationQueryService,
 )
+from app.modules.organization.application.use_cases.create_organization import CreateOrganization
 from app.modules.organization.infrastructure.repositories import (
     SqlAlchemyOrganizationRepository,
     SqlAlchemyOrganizationSettingsRepository,
 )
 from app.modules.organization.public.facade import OrganizationFacade
+from app.shared.infrastructure.sqlalchemy_unit_of_work import SqlAlchemyUnitOfWork
 
 
 def build_organization_facade(session: AsyncSession) -> OrganizationFacade:
@@ -45,5 +55,12 @@ def build_organization_facade(session: AsyncSession) -> OrganizationFacade:
         organization_repository=organization_repository,
         organization_settings_repository=organization_settings_repository,
     )
+    create_organization_use_case = CreateOrganization(
+        organization_repository=organization_repository,
+        organization_settings_repository=organization_settings_repository,
+        unit_of_work=SqlAlchemyUnitOfWork(session, event_bus=get_event_bus()),
+    )
 
-    return OrganizationFacade(query_service=query_service)
+    return OrganizationFacade(
+        query_service=query_service, create_organization_use_case=create_organization_use_case
+    )
